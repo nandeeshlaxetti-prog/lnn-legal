@@ -9,7 +9,8 @@ function mapTask(t) {
         id: t.id, title: t.title, client: t.client,
         caseNo: t.case_no, assigneeId: t.assignee_id,
         stage: t.stage, priority: t.priority,
-        due: t.due, notes: t.notes, createdAt: t.created_at
+        due: t.due, notes: t.notes, createdAt: t.created_at,
+        attachments: t.attachments || []
     };
 }
 
@@ -31,7 +32,7 @@ module.exports = async (req, res) => {
 
     // POST — create task
     if (req.method === 'POST') {
-        const { title, client, caseNo, assigneeId, stage, priority, due, notes } = req.body;
+        const { title, client, caseNo, assigneeId, stage, priority, due, notes, attachments } = req.body;
         const { data, error } = await supabase.from('tasks').insert([{
             title, client: client || null,
             case_no: caseNo || null,
@@ -39,7 +40,8 @@ module.exports = async (req, res) => {
             stage: stage || 'Drafting',
             priority: priority || 'medium',
             due: due || null,
-            notes: notes || null
+            notes: notes || null,
+            attachments: attachments || []
         }]).select().single();
         if (error) return res.status(500).json({ error: error.message });
         return res.status(201).json(mapTask(data));
@@ -48,7 +50,7 @@ module.exports = async (req, res) => {
     // PUT — update task (pass ?id=)
     if (req.method === 'PUT') {
         const { id } = req.query;
-        const { title, client, caseNo, assigneeId, stage, priority, due, notes } = req.body;
+        const { title, client, caseNo, assigneeId, stage, priority, due, notes, attachments } = req.body;
         const updates = {};
         if (title !== undefined) updates.title = title;
         if (client !== undefined) updates.client = client || null;
@@ -58,6 +60,7 @@ module.exports = async (req, res) => {
         if (priority !== undefined) updates.priority = priority;
         if (due !== undefined) updates.due = due || null;
         if (notes !== undefined) updates.notes = notes || null;
+        if (attachments !== undefined) updates.attachments = attachments;
         const { data, error } = await supabase.from('tasks').update(updates).eq('id', id).select().single();
         if (error) return res.status(500).json({ error: error.message });
         return res.json(mapTask(data));

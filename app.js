@@ -30,6 +30,8 @@ const API = {
     getMembers() { return this.request('/api/members'); },
     createMember(data) { return this.request('/api/members', { method: 'POST', body: data }); },
     deleteMember(id) { return this.request(`/api/members?id=${id}`, { method: 'DELETE' }); },
+
+    uploadFile(data) { return this.request('/api/upload', { method: 'POST', body: data }); }
 };
 
 // ============================================================
@@ -367,9 +369,14 @@ function renderTeam() {
 // ============================================================
 // TASK MODAL
 // ============================================================
+let currentTaskAttachments = [];
+
 function openTaskModal(taskId = null) {
     const form = document.getElementById('task-form');
     form.reset();
+    currentTaskAttachments = [];
+    document.getElementById('task-file-list').innerHTML = '';
+    document.getElementById('task-file').value = '';
     populateAssigneeSelect('task-assignee', '');
 
     if (taskId) {
@@ -384,6 +391,16 @@ function openTaskModal(taskId = null) {
         document.getElementById('task-priority').value = t.priority;
         document.getElementById('task-due').value = t.due || '';
         document.getElementById('task-notes').value = t.notes || '';
+        currentTaskAttachments = t.attachments ? [...t.attachments] : [];
+
+        if (currentTaskAttachments.length > 0) {
+            document.getElementById('task-file-list').innerHTML = currentTaskAttachments.map((a, i) =>
+                `<div class="attachment-item">
+           <a href="${a.url}" target="_blank">📄 ${esc(a.name)}</a>
+           <button type="button" class="remove-att-btn" onclick="removeAttachment(${i})">✕</button>
+         </div>`
+            ).join('');
+        }
         populateAssigneeSelect('task-assignee', t.assigneeId || '');
     } else {
         document.getElementById('task-modal-title').textContent = 'New Task';
@@ -392,27 +409,53 @@ function openTaskModal(taskId = null) {
     openModal('task-modal-overlay');
 }
 
+window.removeAttachment = function (idx) {
+    currentTaskAttachments.splice(idx, 1);
+    openTaskModal(document.getElementById('task-id').value); // Re-render modal state
+};
+
+// Convert File to Base64
+const toBase64 = file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = error => reject(error);
+});
+
 document.getElementById('task-form').addEventListener('submit', async e => {
     e.preventDefault();
     const id = document.getElementById('task-id').value;
     const title = document.getElementById('task-title').value.trim();
     if (!title) { showToast('Title is required', 'error'); return; }
 
-    const data = {
-        title,
-        client: document.getElementById('task-client').value.trim(),
-        caseNo: document.getElementById('task-case-no').value.trim(),
-        assigneeId: document.getElementById('task-assignee').value,
-        stage: document.getElementById('task-stage').value,
-        priority: document.getElementById('task-priority').value,
-        due: document.getElementById('task-due').value,
-        notes: document.getElementById('task-notes').value.trim(),
-    };
-
     const submitBtn = e.target.querySelector('button[type=submit]');
     submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
 
+    let finalAttachments = [...currentTaskAttachments];
+
     try {
+        const fileInput = document.getElementById('task-file');
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            if (file.size > 4.5 * 1024 * 1024) throw new Error('File exceeds 4.5MB limit');
+            submitBtn.textContent = 'Uploading…';
+            const fileData = await toBase64(file);
+            const uploadRes = await API.uploadFile({ fileName: file.name, mimeType: file.type, fileData });
+            finalAttachments.push({ name: uploadRes.name, url: uploadRes.url });
+        }
+
+        const data = {
+            title,
+            client: document.getElementById('task-client').value.trim(),
+            caseNo: document.getElementById('task-case-no').value.trim(),
+            assigneeId: document.getElementById('task-assignee').value,
+            stage: document.getElementById('task-stage').value,
+            priority: document.getElementById('task-priority').value,
+            due: document.getElementById('task-due').value,
+            notes: document.getElementById('task-notes').value.trim(),
+            attachments: finalAttachments
+        };
+
         if (id) {
             const updated = await API.updateTask(id, data);
             const idx = DB.tasks.findIndex(t => t.id === id);
@@ -491,6 +534,12 @@ function openDetail(taskId) {
     <div class="detail-field" style="margin-bottom:16px"><label>Notes</label>
       <div class="detail-notes">${esc(t.notes || 'No notes.')}</div>
     </div>
+    ${t.attachments && t.attachments.length > 0 ? `
+    <div class="detail-field" style="margin-bottom:16px"><label>Attachments</label>
+      <div class="attachments-list">
+        ${t.attachments.map(a => `<a class="attachment-item" href="${a.url}" target="_blank">📄 ${esc(a.name)}</a>`).join('')}
+      </div>
+    </div>` : ''}
     <div class="detail-field"><label>Change Stage</label>
       <div class="detail-actions">
         ${STAGES.map(s => {
