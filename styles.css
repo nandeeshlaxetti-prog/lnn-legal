@@ -106,11 +106,19 @@ body {
   font-size: 28px;
 }
 
+.logo-img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
 .logo-text {
   font-size: 20px;
   font-weight: 800;
-  background: linear-gradient(135deg, #818cf8, #6366f1);
+  background: linear-gradient(135deg, #d4af37, #fdf6e3);
+  /* subtle gold gradient to match your logo */
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
 }
@@ -1471,11 +1479,19 @@ body {
   pointer-events: none;
 }
 
+.loading-logo-img {
+  height: 60px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: -4px;
+}
+
 .loading-logo {
   font-size: 28px;
   font-weight: 800;
-  background: linear-gradient(135deg, #818cf8, #6366f1);
+  background: linear-gradient(135deg, #d4af37, #fdf6e3);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
