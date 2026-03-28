@@ -107,6 +107,13 @@ function applyRoleRestrictions() {
     if (roleEl) {
         roleEl.textContent = profile ? (profile.role || 'Member') : 'Super Admin (Unpaired)';
     }
+
+    const nameEl = document.getElementById('current-user-name');
+    const avEl = document.getElementById('current-user-avatar');
+    if (nameEl) {
+        nameEl.textContent = profile ? profile.name : user;
+        avEl.textContent = initials(profile ? profile.name : user);
+    }
 }
 
 // ============================================================
