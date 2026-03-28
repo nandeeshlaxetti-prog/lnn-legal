@@ -1,10 +1,19 @@
 const { createClient } = require('@supabase/supabase-js');
 
+// Increase Vercel Serverless maximum payload to match our UI limits (4.5MB)
+module.exports.config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '4.5mb'
+        }
+    }
+};
+
 function getClient() {
     return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 }
 
-module.exports = async (req, res) => {
+module.exports.default = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -18,10 +27,9 @@ module.exports = async (req, res) => {
 
         if (!fileName || !fileData) return res.status(400).json({ error: 'Missing file data' });
 
-        // Convert base64 to buffer
         const buffer = Buffer.from(fileData, 'base64');
 
-        // Sanitize filename and add timestamp to avoid collisions
+        // Sanitize to avoid illegal folder paths
         const safeName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, '');
         const path = `${Date.now()}_${safeName}`;
 
@@ -31,18 +39,21 @@ module.exports = async (req, res) => {
         });
 
         if (error) {
-            // Auto-format bucket error so it's clear
+            console.error('Supabase Error:', error);
             if (error.message.includes('bucket')) {
-                return res.status(500).json({ error: 'Bucket "documents" does not exist in Supabase.' });
+                return res.status(500).json({ error: 'Bucket "documents" missing or is not Public.' });
             }
             return res.status(500).json({ error: error.message });
         }
 
-        // Get public URL
         const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
 
         return res.status(200).json({ name: fileName, url: urlData.publicUrl });
     } catch (err) {
+        console.error('Server Error:', err);
         return res.status(500).json({ error: err.message });
     }
 };
+
+// Also assign to module.exports for Vercel's older routing syntax
+module.exports = Object.assign(module.exports.default, module.exports);
