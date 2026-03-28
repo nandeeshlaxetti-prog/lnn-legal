@@ -5,7 +5,7 @@ function getClient() {
 }
 
 function mapMember(m) {
-    return { id: m.id, name: m.name, role: m.role, email: m.email, createdAt: m.created_at };
+    return { id: m.id, name: m.name, role: m.role, username: m.username, email: m.email, createdAt: m.created_at };
 }
 
 module.exports = async (req, res) => {
@@ -26,9 +26,9 @@ module.exports = async (req, res) => {
 
     // POST — create member
     if (req.method === 'POST') {
-        const { name, role, email } = req.body;
+        const { name, role, email, username } = req.body;
         const { data, error } = await supabase.from('members').insert([{
-            name, role: role || null, email: email || null
+            name, role: role || null, email: email || null, username: username || null
         }]).select().single();
         if (error) return res.status(500).json({ error: error.message });
         return res.status(201).json(mapMember(data));

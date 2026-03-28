@@ -1370,6 +1370,21 @@ body {
 }
 
 /* ===========================
+   ROLE RESTRICTIONS
+=========================== */
+body.role-associate .admin-only {
+  display: none !important;
+}
+
+body.role-intern .admin-only {
+  display: none !important;
+}
+
+body.role-intern .associate-plus {
+  display: none !important;
+}
+
+/* ===========================
    RESPONSIVE
 =========================== */
 @media (max-width: 1024px) {

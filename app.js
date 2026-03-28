@@ -89,6 +89,25 @@ function setLoading(on) {
     document.getElementById('loading-overlay').classList.toggle('hidden', !on);
 }
 
+let windowCurrentUserLevel = 'admin';
+
+function applyRoleRestrictions() {
+    const user = localStorage.getItem('lnn_auth_user') || '';
+    const profile = DB.members.find(m => (m.username || '').toLowerCase() === user.toLowerCase());
+    const role = profile ? (profile.role || '').toLowerCase() : '';
+
+    if (!profile || role.includes('admin') || role.includes('partner')) windowCurrentUserLevel = 'admin';
+    else if (role.includes('intern') || role.includes('clerk')) windowCurrentUserLevel = 'intern';
+    else windowCurrentUserLevel = 'associate';
+
+    document.body.className = `role-${windowCurrentUserLevel}`;
+
+    const roleEl = document.querySelector('.user-role');
+    if (roleEl) {
+        roleEl.textContent = profile ? (profile.role || 'Member') : 'Super Admin (Unpaired)';
+    }
+}
+
 // ============================================================
 // FETCH ALL DATA
 // ============================================================
@@ -96,6 +115,7 @@ async function fetchAll() {
     const [tasks, members] = await Promise.all([API.getTasks(), API.getMembers()]);
     DB.tasks = tasks;
     DB.members = members;
+    applyRoleRestrictions();
 }
 
 // ============================================================
@@ -279,10 +299,13 @@ function buildKCard(task) {
     </div>
     <div class="kcard-actions">
       <button class="kcard-btn" onclick="openDetail('${task.id}')">👁 View</button>
-      <button class="kcard-btn" onclick="openTaskModal('${task.id}')">✏️ Edit</button>
-      <button class="kcard-btn" onclick="deleteTask('${task.id}')">🗑 Delete</button>
+      <button class="kcard-btn associate-plus" onclick="openTaskModal('${task.id}')">✏️ Edit</button>
+      <button class="kcard-btn admin-only" onclick="deleteTask('${task.id}')">🗑 Delete</button>
     </div>`;
-    card.addEventListener('dragstart', () => { draggedTaskId = task.id; card.classList.add('dragging'); });
+    card.addEventListener('dragstart', (e) => {
+        if (windowCurrentUserLevel === 'intern') return e.preventDefault();
+        draggedTaskId = task.id; card.classList.add('dragging');
+    });
     card.addEventListener('dragend', () => card.classList.remove('dragging'));
     return card;
 }
@@ -334,8 +357,8 @@ function renderTasks() {
       <td><span class="priority-pill ${pm.cls}">${pm.label}</span></td>
       <td><span class="due-text ${ds !== 'none' ? ds : ''}">${dueTxt(t.due)}</span></td>
       <td onclick="event.stopPropagation()">
-        <button class="action-btn" title="Edit"   onclick="openTaskModal('${t.id}')">✏️</button>
-        <button class="action-btn" title="Delete" onclick="deleteTask('${t.id}')">🗑️</button>
+        <button class="action-btn associate-plus" title="Edit"   onclick="openTaskModal('${t.id}')">✏️</button>
+        <button class="action-btn admin-only" title="Delete" onclick="deleteTask('${t.id}')">🗑️</button>
       </td>
     </tr>`;
     }).join('');
@@ -354,7 +377,7 @@ function renderTeam() {
         const active = DB.tasks.filter(t => t.assigneeId === m.id && t.stage !== 'Completed').length;
         const completed = DB.tasks.filter(t => t.assigneeId === m.id && t.stage === 'Completed').length;
         return `<div class="member-card">
-      <button class="member-delete" onclick="deleteMember('${m.id}')" title="Remove">✕</button>
+      <button class="member-delete admin-only" onclick="deleteMember('${m.id}')" title="Remove">✕</button>
       <div class="member-av">${initials(m.name)}</div>
       <div class="member-name">${esc(m.name)}</div>
       <div class="member-role">${esc(m.role || '—')}</div>
@@ -491,6 +514,7 @@ document.getElementById('member-form').addEventListener('submit', async e => {
     try {
         const created = await API.createMember({
             name,
+            username: document.getElementById('member-username').value.trim().toLowerCase(),
             role: document.getElementById('member-role').value.trim(),
             email: document.getElementById('member-email').value.trim(),
         });
@@ -541,7 +565,7 @@ function openDetail(taskId) {
         ${t.attachments.map(a => `<a class="attachment-item" href="${a.url}" target="_blank">📄 ${esc(a.name)}</a>`).join('')}
       </div>
     </div>` : ''}
-    <div class="detail-field"><label>Change Stage</label>
+    <div class="detail-field associate-plus"><label>Change Stage</label>
       <div class="detail-actions">
         ${STAGES.map(s => {
         const active = s === t.stage;
@@ -554,7 +578,7 @@ function openDetail(taskId) {
     </div>
     <div class="modal-actions" style="margin-top:16px">
       <button class="btn-secondary" onclick="closeModal('detail-modal-overlay')">Close</button>
-      <button class="btn-primary" onclick="closeModal('detail-modal-overlay');openTaskModal('${t.id}')">✏️ Edit Task</button>
+      <button class="btn-primary associate-plus" onclick="closeModal('detail-modal-overlay');openTaskModal('${t.id}')">✏️ Edit Task</button>
     </div>`;
     openModal('detail-modal-overlay');
 }
