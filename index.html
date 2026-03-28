@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LNN Legal — Office Work Management</title>
+    <meta name="description"
+        content="LNN Legal — A premium office work management system to allot tasks, track stages, and oversee your team's workflow." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">⚖️</div>
+            <span class="logo-text">LNN Legal</span>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" data-page="board" id="nav-board">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label">Work Board</span>
+            </a>
+            <a href="#" class="nav-item" data-page="tasks" id="nav-tasks">
+                <span class="nav-icon">✅</span>
+                <span class="nav-label">All Tasks</span>
+            </a>
+            <a href="#" class="nav-item" data-page="team" id="nav-team">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Team</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-card">
+                <div class="user-avatar" id="current-user-avatar">MG</div>
+                <div class="user-info">
+                    <span class="user-name" id="current-user-name">Manager</span>
+                    <span class="user-role">Admin</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+        <!-- Top Bar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" id="sidebar-toggle">☰</button>
+                <h1 class="page-title" id="page-title">Dashboard</h1>
+            </div>
+            <div class="topbar-right">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" placeholder="Search tasks..." />
+                </div>
+                <button class="btn-primary" id="new-task-btn">+ New Task</button>
+            </div>
+        </header>
+
+        <!-- Pages -->
+
+        <!-- DASHBOARD PAGE -->
+        <section class="page active" id="page-dashboard">
+            <div class="stats-grid">
+                <div class="stat-card" style="--accent: #6366f1;">
+                    <div class="stat-icon">📁</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-total">0</span>
+                        <span class="stat-label">Total Tasks</span>
+                    </div>
+                    <div class="stat-trend" id="trend-total"></div>
+                </div>
+                <div class="stat-card" style="--accent: #f59e0b;">
+                    <div class="stat-icon">⏳</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-pending">0</span>
+                        <span class="stat-label">Pending Works</span>
+                    </div>
+                </div>
+                <div class="stat-card" style="--accent: #10b981;">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-completed">0</span>
+                        <span class="stat-label">Completed</span>
+                    </div>
+                </div>
+                <div class="stat-card" style="--accent: #ef4444;">
+                    <div class="stat-icon">🚨</div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="stat-overdue">0</span>
+                        <span class="stat-label">Overdue</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h2>Recent Tasks</h2>
+                        <a href="#" class="view-all" data-page="tasks">View All →</a>
+                    </div>
+                    <div class="task-list" id="recent-tasks-list"></div>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <h2>Team Workload</h2>
+                    </div>
+                    <div class="workload-list" id="workload-list"></div>
+                </div>
+            </div>
+
+            <div class="dashboard-card full-width">
+                <div class="card-header">
+                    <h2>Stage Overview</h2>
+                </div>
+                <div class="stage-overview" id="stage-overview"></div>
+            </div>
+        </section>
+
+        <!-- WORK BOARD PAGE (Kanban) -->
+        <section class="page" id="page-board">
+            <div class="board-controls">
+                <div class="filter-group">
+                    <label>Assignee:</label>
+                    <select id="board-filter-assignee">
+                        <option value="all">All Members</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Priority:</label>
+                    <select id="board-filter-priority">
+                        <option value="all">All Priorities</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+            </div>
+            <div class="kanban-board" id="kanban-board"></div>
+        </section>
+
+        <!-- ALL TASKS PAGE -->
+        <section class="page" id="page-tasks">
+            <div class="tasks-controls">
+                <div class="filter-group">
+                    <label>Stage:</label>
+                    <select id="tasks-filter-stage">
+                        <option value="all">All Stages</option>
+                        <option value="Drafting">Drafting</option>
+                        <option value="Review">Review</option>
+                        <option value="Filing">Filing</option>
+                        <option value="Pending Works">Pending Works</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Assignee:</label>
+                    <select id="tasks-filter-assignee">
+                        <option value="all">All Members</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Priority:</label>
+                    <select id="tasks-filter-priority">
+                        <option value="all">All Priorities</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+            </div>
+            <div class="tasks-table-wrapper">
+                <table class="tasks-table" id="tasks-table">
+                    <thead>
+                        <tr>
+                            <th>Task / Case</th>
+                            <th>Assignee</th>
+                            <th>Stage</th>
+                            <th>Priority</th>
+                            <th>Due Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-table-body"></tbody>
+                </table>
+                <div class="empty-state" id="tasks-empty" style="display:none;">
+                    <div class="empty-icon">📭</div>
+                    <p>No tasks found. Create one with <strong>+ New Task</strong>.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TEAM PAGE -->
+        <section class="page" id="page-team">
+            <div class="team-header">
+                <button class="btn-primary" id="add-member-btn">+ Add Member</button>
+            </div>
+            <div class="team-grid" id="team-grid"></div>
+        </section>
+
+    </main>
+
+    <!-- MODAL: New/Edit Task -->
+    <div class="modal-overlay" id="task-modal-overlay">
+        <div class="modal" id="task-modal">
+            <div class="modal-header">
+                <h2 id="task-modal-title">New Task</h2>
+                <button class="modal-close" id="task-modal-close">✕</button>
+            </div>
+            <form id="task-form" class="modal-body">
+                <input type="hidden" id="task-id" />
+
+                <div class="form-row">
+                    <div class="form-group full">
+                        <label>Task / Case Title <span class="required">*</span></label>
+                        <input type="text" id="task-title" placeholder="e.g. Draft Legal Notice – Loan #12345"
+                            required />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Client Name</label>
+                        <input type="text" id="task-client" placeholder="Client / Party name" />
+                    </div>
+                    <div class="form-group">
+                        <label>Case / File Number</label>
+                        <input type="text" id="task-case-no" placeholder="e.g. CC/2024/001" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Assign To <span class="required">*</span></label>
+                        <select id="task-assignee" required>
+                            <option value="">Select member</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Stage <span class="required">*</span></label>
+                        <select id="task-stage" required>
+                            <option value="Drafting">Drafting</option>
+                            <option value="Review">Review</option>
+                            <option value="Filing">Filing</option>
+                            <option value="Pending Works">Pending Works</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="task-priority">
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Due Date</label>
+                        <input type="date" id="task-due" />
+                    </div>
+                </div>
+
+                <div class="form-group full">
+                    <label>Notes / Description</label>
+                    <textarea id="task-notes" rows="3" placeholder="Additional details, instructions..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="task-cancel-btn">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Add Member -->
+    <div class="modal-overlay" id="member-modal-overlay">
+        <div class="modal" id="member-modal">
+            <div class="modal-header">
+                <h2>Add Team Member</h2>
+                <button class="modal-close" id="member-modal-close">✕</button>
+            </div>
+            <form id="member-form" class="modal-body">
+                <div class="form-group full">
+                    <label>Full Name <span class="required">*</span></label>
+                    <input type="text" id="member-name" placeholder="e.g. Priya Sharma" required />
+                </div>
+                <div class="form-group full">
+                    <label>Role / Designation</label>
+                    <input type="text" id="member-role" placeholder="e.g. Junior Advocate" />
+                </div>
+                <div class="form-group full">
+                    <label>Email</label>
+                    <input type="email" id="member-email" placeholder="priya@office.com" />
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="member-cancel-btn">Cancel</button>
+                    <button type="submit" class="btn-primary">Add Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Task Detail View -->
+    <div class="modal-overlay" id="detail-modal-overlay">
+        <div class="modal modal-wide" id="detail-modal">
+            <div class="modal-header">
+                <h2 id="detail-title">Task Details</h2>
+                <button class="modal-close" id="detail-modal-close">✕</button>
+            </div>
+            <div class="modal-body" id="detail-body"></div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
