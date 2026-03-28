@@ -34,6 +34,7 @@ const API = {
 
     uploadFile(data) { return this.request('/api/upload', { method: 'POST', body: data }); },
     getSignUrl(data) { return this.request('/api/upload-url', { method: 'POST', body: data }); },
+    getLogs(id) { return this.request(`/api/logs?taskId=${id}`); },
     loginUser(data) { return this.request('/api/login', { method: 'POST', body: data }); }
 };
 
@@ -275,7 +276,7 @@ function renderBoard() {
                 task.stage = newStage; // optimistic
                 renderBoard();
                 try {
-                    await API.updateTask(draggedTaskId, { stage: newStage });
+                    await API.updateTask(draggedTaskId, { stage: newStage, _userName: document.getElementById('current-user-name').textContent });
                     showToast(`Moved to "${newStage}"`, 'success');
                     await fetchAll(); renderPage(currentPage);
                 } catch (err) { showToast('Failed to update stage', 'error'); await fetchAll(); renderBoard(); }
@@ -494,7 +495,8 @@ document.getElementById('task-form').addEventListener('submit', async e => {
             priority: document.getElementById('task-priority').value,
             due: document.getElementById('task-due').value,
             notes: document.getElementById('task-notes').value.trim(),
-            attachments: finalAttachments
+            attachments: finalAttachments,
+            _userName: document.getElementById('current-user-name').textContent
         };
 
         if (id) {
@@ -586,9 +588,23 @@ document.getElementById('member-form').addEventListener('submit', async e => {
 // ============================================================
 // DETAIL MODAL
 // ============================================================
-function openDetail(taskId) {
+async function openDetail(taskId) {
     const t = DB.tasks.find(t => t.id === taskId);
     if (!t) return;
+
+    document.getElementById('detail-body').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Loading history...</div>';
+    openModal('detail-modal-overlay');
+
+    const logs = await API.getLogs(taskId).catch(() => []);
+    const logsHtml = logs.length === 0 ? '<p style="font-size:13px;color:var(--text-muted);margin-top:8px">No history yet.</p>' :
+        '<div class="audit-trail">' + logs.map(l => `
+        <div class="audit-item">
+          <div class="audit-dot" style="background: ${l.action_type === 'stage' ? '#f59e0b' : l.action_type === 'reassign' ? '#3b82f6' : l.action_type === 'created' ? '#10b981' : '#6366f1'}"></div>
+          <div class="audit-time">${new Date(l.created_at).toLocaleString()}</div>
+          <div><span class="audit-user">${esc(l.user_name)}</span> ${esc(l.description)}</div>
+        </div>
+      `).join('') + '</div>';
+
     const member = getMember(t.assigneeId);
     const sm = STAGE_META[t.stage] || {};
     const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
@@ -628,11 +644,17 @@ function openDetail(taskId) {
     }).join('')}
       </div>
     </div>
+    
+    <hr style="border:0; border-top:1px solid var(--border); margin:20px 0" />
+    <div class="detail-field">
+      <label>📜 Audit Trail & History</label>
+      ${logsHtml}
+    </div>
+
     <div class="modal-actions" style="margin-top:16px">
       <button class="btn-secondary" onclick="closeModal('detail-modal-overlay')">Close</button>
       <button class="btn-primary associate-plus" onclick="closeModal('detail-modal-overlay');openTaskModal('${t.id}')">✏️ Edit Task</button>
     </div>`;
-    openModal('detail-modal-overlay');
 }
 
 async function changeStage(taskId, newStage) {
@@ -642,7 +664,7 @@ async function changeStage(taskId, newStage) {
     closeModal('detail-modal-overlay');
     renderPage(currentPage);
     try {
-        await API.updateTask(taskId, { stage: newStage });
+        await API.updateTask(taskId, { stage: newStage, _userName: document.getElementById('current-user-name').textContent });
         showToast(`Moved to "${newStage}"`, 'success');
         await fetchAll(); renderPage(currentPage);
     } catch (err) { showToast('Error updating stage', 'error'); await fetchAll(); renderPage(currentPage); }

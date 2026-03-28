@@ -1385,6 +1385,49 @@ body.role-intern .associate-plus {
 }
 
 /* ===========================
+   AUDIT TRAIL
+=========================== */
+.audit-trail {
+  border-left: 2px solid var(--border);
+  margin-left: 12px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.audit-item {
+  position: relative;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.audit-dot {
+  position: absolute;
+  left: -25px;
+  top: 4px;
+  width: 8px;
+  height: 8px;
+  background: var(--accent, #6366f1);
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--bg-card);
+}
+
+.audit-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.audit-user {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ===========================
    RESPONSIVE
 =========================== */
 @media (max-width: 1024px) {
