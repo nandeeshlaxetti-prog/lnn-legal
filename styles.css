@@ -59,12 +59,13 @@ body {
   display: flex;
   min-height: 100vh;
   overflow-x: hidden;
+  /* Prevent global horizontal scroll */
 }
 
-/* Scrollbar */
+/* Global scrollbar – modest size */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -73,7 +74,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--bg-elevated);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 /* ===========================
@@ -626,25 +627,29 @@ body {
   display: flex;
   gap: 16px;
   overflow-x: auto;
-  padding-bottom: 24px;
-  /* extra space for scrollbar */
+  padding: 8px 8px 32px 8px;
+  /* Breathing room + space for scrollbar */
   min-height: calc(100vh - 220px);
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* Smooth scroll on iOS/Safari */
 }
 
 /* Force a thick, visible horizontal scrollbar for the Kanban board */
 .kanban-board::-webkit-scrollbar {
-  height: 14px;
+  height: 12px !important;
+  display: block !important;
 }
 
 .kanban-board::-webkit-scrollbar-track {
   background: var(--bg-card);
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--border);
 }
 
 .kanban-board::-webkit-scrollbar-thumb {
-  background: var(--accent, #6366f1);
-  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent, #6366f1), var(--accent-2, #818cf8));
+  border-radius: 10px;
   border: 2px solid var(--bg-card);
 }
 
@@ -652,9 +657,14 @@ body {
   background: #4f46e5;
 }
 
+
+
 .kanban-col {
   min-width: 280px;
   max-width: 280px;
+  width: 280px;
+  flex-shrink: 0;
+  /* Critical for horizontal scroll */
   background: var(--bg-card);
   border-radius: var(--radius);
   border: 1px solid var(--border);
