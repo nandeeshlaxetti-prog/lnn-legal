@@ -29,6 +29,7 @@ const API = {
 
     getMembers() { return this.request('/api/members'); },
     createMember(data) { return this.request('/api/members', { method: 'POST', body: data }); },
+    updateMember(id, data) { return this.request(`/api/members?id=${id}`, { method: 'PUT', body: data }); },
     deleteMember(id) { return this.request(`/api/members?id=${id}`, { method: 'DELETE' }); },
 
     uploadFile(data) { return this.request('/api/upload', { method: 'POST', body: data }); },
@@ -377,11 +378,15 @@ function renderTeam() {
         const active = DB.tasks.filter(t => t.assigneeId === m.id && t.stage !== 'Completed').length;
         const completed = DB.tasks.filter(t => t.assigneeId === m.id && t.stage === 'Completed').length;
         return `<div class="member-card">
-      <button class="member-delete admin-only" onclick="deleteMember('${m.id}')" title="Remove">✕</button>
+      <div class="member-actions admin-only" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px">
+          <button class="action-btn" onclick="openMemberModal('${m.id}')" title="Edit Profile">✏️</button>
+          <button class="member-delete" style="position:static" onclick="deleteMember('${m.id}')" title="Remove Member">✕</button>
+      </div>
       <div class="member-av">${initials(m.name)}</div>
       <div class="member-name">${esc(m.name)}</div>
       <div class="member-role">${esc(m.role || '—')}</div>
-      ${m.email ? `<div class="member-email">${esc(m.email)}</div>` : ''}
+      ${m.email ? `<div class="member-email" style="font-weight:600;margin-top:4px">✉️ ${esc(m.email)}</div>` : ''}
+      ${m.phone ? `<div class="member-email" style="font-weight:600;color:var(--text-primary)">📱 ${esc(m.phone)}</div>` : ''}
       <div class="member-stats">
         <div class="mstat"><div class="mstat-val" style="color:#6366f1">${active}</div><div class="mstat-lbl">Active</div></div>
         <div class="mstat"><div class="mstat-val" style="color:#10b981">${completed}</div><div class="mstat-lbl">Done</div></div>
@@ -503,31 +508,66 @@ document.getElementById('task-form').addEventListener('submit', async e => {
 // ============================================================
 // MEMBER MODAL
 // ============================================================
+function openMemberModal(memberId = null) {
+    const form = document.getElementById('member-form');
+    form.reset();
+
+    if (memberId) {
+        const m = DB.members.find(x => x.id === memberId);
+        if (!m) return;
+        document.getElementById('member-modal-title').textContent = 'Edit Team Member';
+        document.getElementById('member-id').value = m.id;
+        document.getElementById('member-name').value = m.name;
+        document.getElementById('member-username').value = m.username || '';
+        document.getElementById('member-role').value = m.role || 'Associate';
+        document.getElementById('member-email').value = m.email || '';
+        document.getElementById('member-phone').value = m.phone || '';
+        document.getElementById('member-submit-btn').textContent = 'Save Changes';
+    } else {
+        document.getElementById('member-modal-title').textContent = 'Add Team Member';
+        document.getElementById('member-id').value = '';
+        document.getElementById('member-submit-btn').textContent = 'Add Member';
+    }
+    openModal('member-modal-overlay');
+}
+
 document.getElementById('member-form').addEventListener('submit', async e => {
     e.preventDefault();
     const name = document.getElementById('member-name').value.trim();
     if (!name) { showToast('Name is required', 'error'); return; }
 
     const submitBtn = e.target.querySelector('button[type=submit]');
-    submitBtn.disabled = true; submitBtn.textContent = 'Adding…';
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
 
     try {
-        const created = await API.createMember({
+        const id = document.getElementById('member-id').value;
+        const data = {
             name,
             username: document.getElementById('member-username').value.trim().toLowerCase(),
             role: document.getElementById('member-role').value.trim(),
             email: document.getElementById('member-email').value.trim(),
-        });
-        DB.members.push(created);
+            phone: document.getElementById('member-phone').value.trim()
+        };
+
+        if (id) {
+            const updated = await API.updateMember(id, data);
+            const idx = DB.members.findIndex(m => m.id === id);
+            if (idx !== -1) DB.members[idx] = updated;
+            showToast('Profile updated ✓');
+        } else {
+            const created = await API.createMember(data);
+            DB.members.push(created);
+            showToast('Member added ✓');
+        }
         closeModal('member-modal-overlay');
         renderTeam();
         refreshAssigneeSelects();
-        showToast('Member added ✓');
+        applyRoleRestrictions();
         await fetchAll(); renderPage(currentPage);
     } catch (err) {
         showToast('Error: ' + err.message, 'error');
     } finally {
-        submitBtn.disabled = false; submitBtn.textContent = 'Add Member';
+        submitBtn.disabled = false; submitBtn.textContent = 'Save Member';
     }
 });
 
@@ -659,10 +699,7 @@ document.querySelectorAll('.nav-item').forEach(el =>
 document.querySelectorAll('.view-all').forEach(el =>
     el.addEventListener('click', e => { e.preventDefault(); showPage(el.dataset.page); })
 );
-document.getElementById('add-member-btn').addEventListener('click', () => {
-    document.getElementById('member-form').reset();
-    openModal('member-modal-overlay');
-});
+document.getElementById('add-member-btn').addEventListener('click', () => openMemberModal());
 
 ['task-modal-close', 'task-cancel-btn'].forEach(id =>
     document.getElementById(id)?.addEventListener('click', () => closeModal('task-modal-overlay'))

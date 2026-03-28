@@ -5,12 +5,12 @@ function getClient() {
 }
 
 function mapMember(m) {
-    return { id: m.id, name: m.name, role: m.role, username: m.username, email: m.email, createdAt: m.created_at };
+    return { id: m.id, name: m.name, role: m.role, username: m.username, email: m.email, phone: m.phone, createdAt: m.created_at };
 }
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -26,20 +26,35 @@ module.exports = async (req, res) => {
 
     // POST — create member
     if (req.method === 'POST') {
-        const { name, role, email, username } = req.body;
+        const { name, role, email, username, phone } = req.body;
         const { data, error } = await supabase.from('members').insert([{
-            name, role: role || null, email: email || null, username: username || null
+            name, role: role || null, email: email || null, username: username || null, phone: phone || null
         }]).select().single();
         if (error) return res.status(500).json({ error: error.message });
         return res.status(201).json(mapMember(data));
     }
 
-    // DELETE — delete member + unassign their tasks (pass ?id=)
+    // PUT — update member
+    if (req.method === 'PUT') {
+        const { id } = req.query;
+        if (!id) return res.status(400).json({ error: 'Missing ID' });
+        const { name, role, email, username, phone } = req.body;
+        const updates = {};
+        if (name !== undefined) updates.name = name;
+        if (role !== undefined) updates.role = role || null;
+        if (email !== undefined) updates.email = email || null;
+        if (username !== undefined) updates.username = username || null;
+        if (phone !== undefined) updates.phone = phone || null;
+
+        const { data, error } = await supabase.from('members').update(updates).eq('id', id).select().single();
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json(mapMember(data));
+    }
+
+    // DELETE — delete member + unassign their tasks
     if (req.method === 'DELETE') {
         const { id } = req.query;
-        // Unassign tasks belonging to this member
         await supabase.from('tasks').update({ assignee_id: null }).eq('assignee_id', id);
-        // Delete the member
         const { error } = await supabase.from('members').delete().eq('id', id);
         if (error) return res.status(500).json({ error: error.message });
         return res.json({ success: true });
