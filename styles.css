@@ -626,8 +626,30 @@ body {
   display: flex;
   gap: 16px;
   overflow-x: auto;
-  padding-bottom: 16px;
+  padding-bottom: 24px;
+  /* extra space for scrollbar */
   min-height: calc(100vh - 220px);
+}
+
+/* Force a thick, visible horizontal scrollbar for the Kanban board */
+.kanban-board::-webkit-scrollbar {
+  height: 14px;
+}
+
+.kanban-board::-webkit-scrollbar-track {
+  background: var(--bg-card);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.kanban-board::-webkit-scrollbar-thumb {
+  background: var(--accent, #6366f1);
+  border-radius: 8px;
+  border: 2px solid var(--bg-card);
+}
+
+.kanban-board::-webkit-scrollbar-thumb:hover {
+  background: #4f46e5;
 }
 
 .kanban-col {
