@@ -1497,6 +1497,74 @@ body {
 }
 
 /* ===========================
+   LOGIN OVERLAY
+=========================== */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 15, 26, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  transition: opacity 0.4s ease;
+  padding: 20px;
+}
+
+.login-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.login-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  transform: translateY(12px);
+  animation: loginCardFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes loginCardFade {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.login-logo-img {
+  height: 60px;
+  margin-bottom: 16px;
+  object-fit: contain;
+}
+
+.login-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 4px;
+  background: linear-gradient(135deg, #d4af37, #fdf6e3);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.login-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+}
+
+.login-form {
+  text-align: left;
+}
+
+/* ===========================
    LOADING OVERLAY
 =========================== */
 .loading-overlay {

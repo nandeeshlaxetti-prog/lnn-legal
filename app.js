@@ -31,7 +31,8 @@ const API = {
     createMember(data) { return this.request('/api/members', { method: 'POST', body: data }); },
     deleteMember(id) { return this.request(`/api/members?id=${id}`, { method: 'DELETE' }); },
 
-    uploadFile(data) { return this.request('/api/upload', { method: 'POST', body: data }); }
+    uploadFile(data) { return this.request('/api/upload', { method: 'POST', body: data }); },
+    loginUser(data) { return this.request('/api/login', { method: 'POST', body: data }); }
 };
 
 // ============================================================
@@ -660,9 +661,35 @@ document.getElementById('tasks-filter-assignee').addEventListener('change', rend
 document.getElementById('tasks-filter-priority').addEventListener('change', renderTasks);
 
 // ============================================================
-// INIT
+// LOGIN & INIT
 // ============================================================
-(async () => {
+document.getElementById('login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    const err = document.getElementById('login-err');
+    const btn = e.target.querySelector('button');
+    err.style.display = 'none';
+    btn.textContent = 'Authenticating…';
+    btn.disabled = true;
+
+    try {
+        const res = await API.loginUser({ username: u, password: p });
+        if (res.success) {
+            localStorage.setItem('lnn_auth_user', u);
+            document.getElementById('login-overlay').classList.add('hidden');
+            initApp();
+        }
+    } catch (e) {
+        err.textContent = e.message;
+        err.style.display = 'block';
+    } finally {
+        btn.textContent = 'Secure Login';
+        btn.disabled = false;
+    }
+});
+
+async function initApp() {
     setLoading(true);
     try {
         await fetchAll();
@@ -674,5 +701,15 @@ document.getElementById('tasks-filter-priority').addEventListener('change', rend
         showPage('dashboard'); // render empty
     } finally {
         setLoading(false);
+    }
+}
+
+// Initial Boot
+(async () => {
+    if (!localStorage.getItem('lnn_auth_user')) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+    } else {
+        document.getElementById('login-overlay').classList.add('hidden');
+        initApp();
     }
 })();
