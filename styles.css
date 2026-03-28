@@ -929,6 +929,21 @@ body {
   color: #34d399;
 }
 
+.badge-reading {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+
+.badge-research {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+}
+
+.badge-response {
+  background: rgba(132, 204, 22, 0.15);
+  color: #a3e635;
+}
+
 .priority-pill {
   display: inline-block;
   padding: 2px 9px;

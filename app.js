@@ -41,13 +41,16 @@ const API = {
 // ============================================================
 // CONSTANTS
 // ============================================================
-const STAGES = ['Drafting', 'Review', 'Filing', 'Pending Works', 'Completed'];
+const STAGES = ['Reading/Brief', 'Research', 'Drafting', 'Review', 'Client Response', 'Filing', 'Pending Works', 'Completed'];
 const STAGE_META = {
+    'Reading/Brief': { dot: '#8b5cf6', cls: 'badge-reading' },
+    'Research': { dot: '#0ea5e9', cls: 'badge-research' },
     'Drafting': { dot: '#6366f1', cls: 'badge-drafting' },
     'Review': { dot: '#f59e0b', cls: 'badge-review' },
+    'Client Response': { dot: '#84cc16', cls: 'badge-response' },
     'Filing': { dot: '#3b82f6', cls: 'badge-filing' },
     'Pending Works': { dot: '#ef4444', cls: 'badge-pending' },
-    'Completed': { dot: '#10b981', cls: 'badge-completed' },
+    'Completed': { dot: '#10b981', cls: 'badge-completed' }
 };
 const PRIORITY_META = {
     high: { cls: 'pill-high', color: '#ef4444', label: '🔴 High' },
