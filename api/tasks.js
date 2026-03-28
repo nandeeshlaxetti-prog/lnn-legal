@@ -1,4 +1,48 @@
 const { createClient } = require('@supabase/supabase-js');
+const nodemailer = require('nodemailer');
+
+const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.office365.com',
+    port: parseInt(process.env.EMAIL_PORT || '587'),
+    secure: process.env.EMAIL_PORT === '465',
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+});
+
+async function sendAssignmentEmail(supabase, taskDetails, assigneeId, assignerName) {
+    if (!assigneeId || !process.env.EMAIL_USER) return;
+    const { data: member } = await supabase.from('members').select('email, name').eq('id', assigneeId).single();
+    if (!member || !member.email) return;
+
+    const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+            <div style="background-color: #1e1e24; padding: 20px; text-align: center; border-bottom: 3px solid #d4af37;">
+                <h1 style="color: #d4af37; margin: 0; font-size: 24px;">LNN Legal</h1>
+                <p style="color: #9ca3af; margin: 5px 0 0 0; font-size: 14px;">Case Management System</p>
+            </div>
+            <div style="padding: 30px; background-color: #ffffff;">
+                <h2 style="margin-top: 0; color: #111827; font-size: 20px;">New Task Assigned</h2>
+                <p style="font-size: 15px; color: #4b5563; line-height: 1.5;">Hello <strong>${member.name}</strong>,</p>
+                <p style="font-size: 15px; color: #4b5563; line-height: 1.5;"><strong>${assignerName}</strong> has assigned a new task to you.</p>
+                <div style="background-color: #f9fafb; border-left: 4px solid #3b82f6; padding: 15px; margin: 25px 0; border-radius: 0 4px 4px 0;">
+                    <h3 style="margin: 0 0 10px 0; color: #1f2937; font-size: 16px;">${taskDetails.title}</h3>
+                    ${taskDetails.case_no ? `<p style="margin: 5px 0; font-size: 14px;"><strong>Case No:</strong> ${taskDetails.case_no}</p>` : ''}
+                    ${taskDetails.client ? `<p style="margin: 5px 0; font-size: 14px;"><strong>Client:</strong> ${taskDetails.client}</p>` : ''}
+                    ${taskDetails.due ? `<p style="margin: 5px 0; font-size: 14px;"><strong>Due Date:</strong> ${taskDetails.due}</p>` : ''}
+                </div>
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="https://lnn-legal.vercel.app/" style="display: inline-block; background-color: #d4af37; color: #111827; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 15px;">Open Dashboard</a>
+                </div>
+            </div>
+            <div style="background-color: #f3f4f6; color: #6b7280; text-align: center; padding: 15px; font-size: 12px;">This is an automated notification from the LNN Legal Management System. Please do not reply directly.</div>
+        </div>`;
+
+    await transporter.sendMail({
+        from: `"LNN Legal Alerts" <${process.env.EMAIL_USER}>`,
+        to: member.email,
+        subject: `Requires Action: New Task Assigned - ${taskDetails.title}`,
+        html: emailHtml
+    }).catch(console.error);
+}
 
 function getClient() {
     return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -57,6 +101,8 @@ module.exports = async (req, res) => {
             await logActivity(supabase, data.id, _userName || 'System', 'upload', `Attached ${attachments.length} document(s) during creation`);
         }
 
+        if (data.assignee_id) await sendAssignmentEmail(supabase, data, data.assignee_id, _userName || 'System');
+
         return res.status(201).json(mapTask(data));
     }
 
@@ -86,7 +132,10 @@ module.exports = async (req, res) => {
             if (oldTask.stage !== data.stage) await logActivity(supabase, id, uName, 'stage', `Moved from "${oldTask.stage}" to "${data.stage}"`);
             if (oldTask.assignee_id !== data.assignee_id) {
                 if (!data.assignee_id) await logActivity(supabase, id, uName, 'reassign', 'Unassigned the task');
-                else await logActivity(supabase, id, uName, 'reassign', 'Re-assigned task to a new member');
+                else {
+                    await logActivity(supabase, id, uName, 'reassign', 'Re-assigned task to a new member');
+                    await sendAssignmentEmail(supabase, data, data.assignee_id, uName);
+                }
             }
             if (oldTask.due !== data.due) {
                 await logActivity(supabase, id, uName, 'edit', `Due date changed to ${data.due ? data.due : 'None'}`);
