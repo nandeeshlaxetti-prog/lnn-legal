@@ -33,6 +33,7 @@ const API = {
     deleteMember(id) { return this.request(`/api/members?id=${id}`, { method: 'DELETE' }); },
 
     uploadFile(data) { return this.request('/api/upload', { method: 'POST', body: data }); },
+    getSignUrl(data) { return this.request('/api/upload-url', { method: 'POST', body: data }); },
     loginUser(data) { return this.request('/api/login', { method: 'POST', body: data }); }
 };
 
@@ -450,14 +451,6 @@ window.removeAttachment = function (idx) {
     openTaskModal(document.getElementById('task-id').value); // Re-render modal state
 };
 
-// Convert File to Base64
-const toBase64 = file => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = error => reject(error);
-});
-
 document.getElementById('task-form').addEventListener('submit', async e => {
     e.preventDefault();
     const id = document.getElementById('task-id').value;
@@ -472,12 +465,24 @@ document.getElementById('task-form').addEventListener('submit', async e => {
     try {
         const fileInput = document.getElementById('task-file');
         if (fileInput.files.length > 0) {
-            const file = fileInput.files[0];
-            if (file.size > 4.5 * 1024 * 1024) throw new Error('File exceeds 4.5MB limit');
-            submitBtn.textContent = 'Uploading…';
-            const fileData = await toBase64(file);
-            const uploadRes = await API.uploadFile({ fileName: file.name, mimeType: file.type, fileData });
-            finalAttachments.push({ name: uploadRes.name, url: uploadRes.url });
+            submitBtn.textContent = 'Uploading files…';
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const file = fileInput.files[i];
+
+                // 1. Get secure one-time signed URL bypassing Vercel's 4.5MB ceiling
+                const authUrl = await API.getSignUrl({ fileName: file.name });
+
+                // 2. Transmit bytes directly into Supabase Storage
+                const uploadRes = await fetch(authUrl.signedUrl, {
+                    method: 'PUT',
+                    body: file,
+                    headers: { 'Content-Type': file.type || 'application/octet-stream' }
+                });
+
+                if (!uploadRes.ok) throw new Error(`Document upload failed securely for ${file.name}`);
+
+                finalAttachments.push({ name: file.name, url: authUrl.publicUrl });
+            }
         }
 
         const data = {
