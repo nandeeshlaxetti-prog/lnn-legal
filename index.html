@@ -15,6 +15,13 @@
 
 <body>
 
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-logo">⚖️ LNN Legal</div>
+        <div class="spinner"></div>
+        <p class="loading-msg">Connecting to database…</p>
+    </div>
+
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-logo">
@@ -66,6 +73,7 @@
                     <span class="search-icon">🔍</span>
                     <input type="text" id="search-input" placeholder="Search tasks..." />
                 </div>
+                <span class="last-sync" id="last-sync"></span>
                 <button class="btn-primary" id="new-task-btn">+ New Task</button>
             </div>
         </header>

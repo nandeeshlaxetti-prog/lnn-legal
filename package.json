@@ -1,0 +1,8 @@
+{
+    "name": "lnn-legal",
+    "version": "1.0.0",
+    "description": "LNN Legal — Office Work Management System",
+    "dependencies": {
+        "@supabase/supabase-js": "^2.39.0"
+    }
+}
