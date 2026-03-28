@@ -1343,6 +1343,7 @@ body {
 
   .sidebar.open {
     transform: translateX(0);
+    box-shadow: var(--shadow-lg);
   }
 
   .main-content {
@@ -1351,6 +1352,28 @@ body {
 
   .sidebar-toggle {
     display: flex;
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--topbar-h);
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .topbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .search-box {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .search-box input {
+    width: 100%;
   }
 
   .stats-grid {
@@ -1365,10 +1388,65 @@ body {
     min-width: auto;
     max-width: none;
     max-height: none;
+    margin-bottom: 8px;
   }
 
   .page {
     padding: 16px;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .board-controls,
+  .tasks-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .filter-group {
+    align-items: stretch;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .filter-group select {
+    flex: 1;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-header h2 {
+    font-size: 15px;
+  }
+
+  .detail-actions {
+    flex-direction: column;
+  }
+
+  .detail-stage-btn {
+    width: 100%;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .modal-actions .btn-primary,
+  .modal-actions .btn-secondary {
+    width: 100%;
   }
 }
 
