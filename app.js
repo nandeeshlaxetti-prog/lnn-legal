@@ -706,10 +706,18 @@ async function initApp() {
 
 // Initial Boot
 (async () => {
-    if (!localStorage.getItem('lnn_auth_user')) {
+    const user = localStorage.getItem('lnn_auth_user');
+    if (!user) {
         document.getElementById('login-overlay').classList.remove('hidden');
     } else {
         document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('current-user-name').textContent = user;
+        document.getElementById('current-user-avatar').textContent = initials(user);
         initApp();
     }
 })();
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('lnn_auth_user');
+    location.reload();
+});
