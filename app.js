@@ -1041,6 +1041,29 @@ document.getElementById('tasks-filter-stage').addEventListener('change', renderT
 document.getElementById('tasks-filter-assignee').addEventListener('change', renderTasks);
 document.getElementById('tasks-filter-priority').addEventListener('change', renderTasks);
 
+// AI BRIEFING GENERATOR
+document.getElementById('case-ai-brief-btn').onclick = () => {
+    const type = document.getElementById('case-type').value || '[Case Type]';
+    const no = document.getElementById('case-no').value || '[No.]';
+    const year = document.getElementById('case-year').value || '[Year]';
+    const court = document.getElementById('case-court').value || '[Court Name]';
+    const hall = document.getElementById('case-court-hall').value || '[Court Hall]';
+    const pet = document.getElementById('case-petitioner').value || '[Petitioner]';
+    const res = document.getElementById('case-respondent').value || '[Respondent]';
+    const law = document.getElementById('case-law').value || '[Relevant Law]';
+    const counsel = document.getElementById('case-opposite-counsel').value || '[Opponent Counsel]';
+    const forSide = document.getElementById('case-appearing-for').value || '[Party]';
+
+    const narrative = `This is a ${type} matter filed before the ${court} (${hall}). The case, registered as ${type} No. ${no}/${year}, centers on ${law}. 
+
+The firm is appearing for the ${forSide} (${forSide === 'Petitioner' ? pet : res}), pitted against the ${forSide === 'Petitioner' ? 'Respondent' : 'Petitioner'} who is represented by Advocate ${counsel}. 
+
+The primary objective of the litigation is to represent the ${forSide}'s interest effectively before the Bench. Legal associates are directed to prioritize the research and drafting relevant to ${law} for the upcoming court sessions.`;
+
+    document.getElementById('case-notes').value = narrative;
+    showToast('AI Briefing Drafted ✨');
+};
+
 // ============================================================
 // LOGIN & INIT
 // ============================================================
