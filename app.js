@@ -797,6 +797,7 @@ async function openCaseFile(caseId) {
     }
 
     document.getElementById('cd-edit-btn').onclick = () => openCaseModal(c.id);
+    document.getElementById('cd-set-date-btn').onclick = () => openCaseModal(c.id);
 }
 
 // ============================================================
