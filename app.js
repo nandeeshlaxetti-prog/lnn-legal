@@ -696,12 +696,13 @@ async function openCaseFile(caseId) {
     // Populate Case Info
     const fullNo = `${c.case_type} No. ${c.case_no}/${c.case_year}`;
     document.getElementById('cd-title').textContent = fullNo;
-    document.getElementById('cd-client').innerHTML = `
-        <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:4px">
-            ${esc(c.petitioner_type || 'Petitioner')} vs ${esc(c.respondent_type || 'Respondent')}
-        </div>
-        <div>${esc(c.petitioner)} <span style="color:var(--text-secondary); opacity:0.6">vs</span> ${esc(c.respondent)}</div>
-    `;
+    document.getElementById('cd-client').innerHTML = `${esc(c.petitioner)} <span style="color:var(--text-secondary); opacity:0.6">vs</span> ${esc(c.respondent)}`;
+
+    // Populate Header Metadata Chips
+    document.getElementById('hdr-stage').textContent = c.stage || 'Pending';
+    document.getElementById('hdr-law').textContent = c.law || '—';
+    document.getElementById('hdr-counsel').textContent = c.opposite_counsel || '—';
+    document.getElementById('hdr-appearing').textContent = c.appearing_for || '—';
 
     // Sidebar Extension
     const p = DB.members.find(m => m.id === c.partner_id);
@@ -713,32 +714,10 @@ async function openCaseFile(caseId) {
     if (c.purpose) document.getElementById('cd-next-hearing').textContent += ` (${c.purpose})`;
 
     document.getElementById('cd-notes').innerHTML = `
-        <div style="margin-bottom:16px; display:grid; grid-template-columns: 1fr 1fr; gap:16px; background:#f3f4f6; padding:16px; border-radius:8px">
-            <div>
-                <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase">Legal Stage</label>
-                <div style="font-weight:600">${esc(c.stage || '—')}</div>
-            </div>
-            <div>
-                <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase">Relevant Law</label>
-                <div style="font-weight:600">${esc(c.law || '—')}</div>
-            </div>
-            <div>
-                <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase">Opponent Counsel</label>
-                <div style="font-weight:600">${esc(c.opposite_counsel || '—')}</div>
-            </div>
-            <div>
-                <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase">Appearing For</label>
-                <div style="font-weight:600">${esc(c.appearing_for || '—')}</div>
-            </div>
+        <div style="margin-bottom:12px; font-size:1.1rem; color:var(--text-primary); font-weight:700">
+            ${esc(c.court_name || '—')} | ${esc(c.court_hall || '—')}
         </div>
-
-        <div style="margin-bottom:12px; font-size:1.1rem">
-            <strong>Court:</strong> ${esc(c.court_name || '—')} | <strong>Hall:</strong> ${esc(c.court_hall || '—')}
-        </div>
-        <div style="background:#fff; padding:16px; border-radius:8px; border:1px solid #e5e7eb; min-height:100px">
-            <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px">Case Summary</label>
-            ${esc(c.notes || 'No briefing added.')}
-        </div>
+        <div>${esc(c.notes || 'No briefing added.')}</div>
     `;
 
     // Documents

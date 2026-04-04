@@ -2101,3 +2101,36 @@ body.role-intern .associate-plus {
   margin-bottom: 16px;
   opacity: 0.5;
 }
+/* ===========================
+   PROFESSIONAL LEGAL STYLES
+=========================== */
+.legal-chip {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    transition: all var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.legal-chip:hover {
+    border-color: var(--accent);
+    background: var(--bg-elevated);
+}
+
+.chip-label {
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+}
+
+.chip-value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
