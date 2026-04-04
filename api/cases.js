@@ -22,7 +22,7 @@ module.exports = async (req, res) => {
 
     // POST — create case
     if (req.method === 'POST') {
-        const { case_type, case_no, case_year, cnr_no, court_name, court_hall, petitioner, respondent, appearing_for, partner_id, notes, attachments } = req.body;
+        const { case_type, case_no, case_year, cnr_no, court_name, court_hall, petitioner_type, petitioner, respondent_type, respondent, appearing_for, partner_id, notes, attachments } = req.body;
         const { data, error } = await supabase.from('cases').insert([{
             case_type: case_type || null,
             case_no: case_no || null,
@@ -30,7 +30,9 @@ module.exports = async (req, res) => {
             cnr_no: cnr_no || null,
             court_name: court_name || null,
             court_hall: court_hall || null,
+            petitioner_type: petitioner_type || 'Petitioner',
             petitioner: petitioner || null,
+            respondent_type: respondent_type || 'Respondent',
             respondent: respondent || null,
             appearing_for: appearing_for || 'Petitioner',
             partner_id: partner_id || null,
@@ -44,7 +46,7 @@ module.exports = async (req, res) => {
     // PUT — update case
     if (req.method === 'PUT') {
         const { id } = req.query;
-        const { case_type, case_no, case_year, cnr_no, court_name, court_hall, petitioner, respondent, appearing_for, partner_id, notes, attachments } = req.body;
+        const { case_type, case_no, case_year, cnr_no, court_name, court_hall, petitioner_type, petitioner, respondent_type, respondent, appearing_for, partner_id, notes, attachments } = req.body;
         const updates = {};
         if (case_type !== undefined) updates.case_type = case_type || null;
         if (case_no !== undefined) updates.case_no = case_no || null;
@@ -52,7 +54,9 @@ module.exports = async (req, res) => {
         if (cnr_no !== undefined) updates.cnr_no = cnr_no || null;
         if (court_name !== undefined) updates.court_name = court_name || null;
         if (court_hall !== undefined) updates.court_hall = court_hall || null;
+        if (petitioner_type !== undefined) updates.petitioner_type = petitioner_type;
         if (petitioner !== undefined) updates.petitioner = petitioner || null;
+        if (respondent_type !== undefined) updates.respondent_type = respondent_type;
         if (respondent !== undefined) updates.respondent = respondent || null;
         if (appearing_for !== undefined) updates.appearing_for = appearing_for;
         if (partner_id !== undefined) updates.partner_id = partner_id || null;

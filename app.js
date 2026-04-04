@@ -418,6 +418,9 @@ function renderCases() {
     tbody.innerHTML = displayCases.map(c => {
         const partner = DB.members.find(m => m.id === c.partner_id) || { name: '—' };
         const fullNo = `${c.case_type} ${c.case_no}/${c.case_year}`;
+        const pType = (c.petitioner_type || 'Petitioner').charAt(0);
+        const rType = (c.respondent_type || 'Respondent').charAt(0);
+        
         return `<tr>
             <td class="td-title">
                 <div>${esc(fullNo)}</div>
@@ -425,8 +428,8 @@ function renderCases() {
             </td>
             <td><code>${esc(c.cnr_no || '—')}</code></td>
             <td>
-                <div>P: ${esc(c.petitioner || '—')}</div>
-                <div class="td-sub">R: ${esc(c.respondent || '—')}</div>
+                <div>${pType}: ${esc(c.petitioner || '—')}</div>
+                <div class="td-sub">${rType}: ${esc(c.respondent || '—')}</div>
             </td>
             <td>${esc(c.court_name || '—')}</td>
             <td>${esc(partner.name)}</td>
@@ -710,6 +713,10 @@ async function openCaseFile(caseId) {
         <div style="margin-bottom:12px">
             <strong>Court:</strong> ${esc(c.court_name || '—')} | <strong>Hall:</strong> ${esc(c.court_hall || '—')}
         </div>
+        <div style="margin-bottom:12px; display:flex; gap:20px">
+            <div><strong>${esc(c.petitioner_type || 'Petitioner')}:</strong> ${esc(c.petitioner)}</div>
+            <div><strong>${esc(c.respondent_type || 'Respondent')}:</strong> ${esc(c.respondent)}</div>
+        </div>
         <div style="margin-bottom:12px">
             <strong>Appearing For:</strong> <span class="priority-pill" style="background:#e0e7ff;color:#4338ca">${esc(c.appearing_for || 'Petitioner')}</span>
         </div>
@@ -748,7 +755,9 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-year').value = c.case_year || '';
         document.getElementById('case-court').value = c.court_name || '';
         document.getElementById('case-hall').value = c.court_hall || '';
+        document.getElementById('case-petitioner-type').value = c.petitioner_type || 'Petitioner';
         document.getElementById('case-petitioner').value = c.petitioner || '';
+        document.getElementById('case-respondent-type').value = c.respondent_type || 'Respondent';
         document.getElementById('case-respondent').value = c.respondent || '';
         document.getElementById('case-appearing-for').value = c.appearing_for || 'Petitioner';
         document.getElementById('case-partner').value = c.partner_id || '';
@@ -777,7 +786,9 @@ document.getElementById('case-form').addEventListener('submit', async e => {
         case_year: document.getElementById('case-year').value.trim(),
         court_name: document.getElementById('case-court').value.trim(),
         court_hall: document.getElementById('case-hall').value.trim(),
+        petitioner_type: document.getElementById('case-petitioner-type').value,
         petitioner: document.getElementById('case-petitioner').value.trim(),
+        respondent_type: document.getElementById('case-respondent-type').value,
         respondent: document.getElementById('case-respondent').value.trim(),
         appearing_for: document.getElementById('case-appearing-for').value,
         partner_id: document.getElementById('case-partner').value,
