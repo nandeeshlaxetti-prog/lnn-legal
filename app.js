@@ -519,13 +519,18 @@ function renderTeam() {
 // ============================================================
 let currentTaskAttachments = [];
 
-function openTaskModal(taskId = null) {
+function openTaskModal(taskId = null, linkedCaseId = null) {
     const form = document.getElementById('task-form');
     form.reset();
     currentTaskAttachments = [];
     document.getElementById('task-file-list').innerHTML = '';
     document.getElementById('task-file').value = '';
     populateAssigneeSelect('task-assignee', '');
+
+    // Populate Case Dropdown FIRST (so values can be set correctly)
+    const caseSel = document.getElementById('task-case-id');
+    caseSel.innerHTML = '<option value="">Select Case (Optional)</option>' + 
+        DB.cases.map(c => `<option value="${c.id}">${esc(c.case_type)} ${c.case_no}/${c.case_year} (${esc(c.petitioner)})</option>`).join('');
 
     if (taskId) {
         const t = DB.tasks.find(t => t.id === taskId);
@@ -545,12 +550,8 @@ function openTaskModal(taskId = null) {
         document.getElementById('task-title').value = '';
         document.getElementById('task-stage').value = 'Reading/Brief';
         document.getElementById('task-assignee').value = '';
-        document.getElementById('task-case-id').value = '';
+        document.getElementById('task-case-id').value = linkedCaseId || '';
     }
-
-    const caseSel = document.getElementById('task-case-id');
-    caseSel.innerHTML = '<option value="">Select Case (Optional)</option>' + 
-        DB.cases.map(c => `<option value="${c.id}">${esc(c.case_type)} ${c.case_no}/${c.case_year} (${esc(c.petitioner)})</option>`).join('');
 
     openModal('task-modal-overlay');
 }
@@ -830,10 +831,7 @@ async function openCaseFile(caseId) {
     // Bind Buttons
     document.getElementById('cd-edit-btn').onclick = () => openCaseModal(c.id);
     document.getElementById('cd-set-date-btn').onclick = () => openHearingModal(c.id);
-    document.getElementById('cd-create-task-btn').onclick = () => {
-        openTaskModal();
-        document.getElementById('task-case-id').value = c.id;
-    };
+    document.getElementById('cd-create-task-btn').onclick = () => openTaskModal(null, c.id);
 
     // Document Upload Logic for Case File (Feature 4)
     document.getElementById('cd-add-doc-btn').onclick = async () => {
