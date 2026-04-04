@@ -416,7 +416,7 @@ function renderCases() {
 
     tbody.innerHTML = displayCases.map(c => {
         const partner = DB.members.find(m => m.id === c.partner_id) || { name: '—' };
-        const fullNo = `${c.case_type} ${c.case_no}/${c.case_year}`;
+        const fullNo = `${c.case_type} No. ${c.case_no}/${c.case_year}`;
         const pType = (c.petitioner_type || 'Petitioner').charAt(0);
         const rType = (c.respondent_type || 'Respondent').charAt(0);
         
@@ -689,49 +689,77 @@ async function openDetail(taskId) {
 // ============================================================
 async function openCaseFile(caseId) {
     const c = DB.cases.find(x => x.id === caseId);
-    if (!c) return showToast('Case file not found', 'error');
-
+    if (!c) return;
+    
     showPage('case-detail');
     
     // Populate Case Info
-    const fullNo = `${c.case_type} ${c.case_no}/${c.case_year}`;
+    const fullNo = `${c.case_type} No. ${c.case_no}/${c.case_year}`;
     document.getElementById('cd-title').textContent = fullNo;
-    document.getElementById('cd-client').textContent = `${c.petitioner || '—'} vs ${c.respondent || '—'}`;
-    document.getElementById('cd-case-no').textContent = fullNo;
+    document.getElementById('cd-client').innerHTML = `
+        <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:4px">
+            ${esc(c.petitioner_type || 'Petitioner')} vs ${esc(c.respondent_type || 'Respondent')}
+        </div>
+        <div>${esc(c.petitioner)} <span style="color:var(--text-secondary); opacity:0.6">vs</span> ${esc(c.respondent)}</div>
+    `;
 
     // Sidebar Extension
     const p = DB.members.find(m => m.id === c.partner_id);
     document.getElementById('cd-assignee-name').textContent = p ? p.name : 'Unassigned';
-    document.getElementById('cd-assignee-role').textContent = 'Partner In-Charge';
-    document.getElementById('cd-created-at').textContent = new Date(c.created_at).toLocaleDateString();
-
+    document.getElementById('cd-assignee-av').textContent = initials(p ? p.name : '??');
+    
     // Detailed Info
     document.getElementById('cd-notes').innerHTML = `
-        <div style="margin-bottom:12px">
+        <div style="margin-bottom:12px; font-size:1.1rem">
             <strong>Court:</strong> ${esc(c.court_name || '—')} | <strong>Hall:</strong> ${esc(c.court_hall || '—')}
         </div>
-        <div style="margin-bottom:12px; display:flex; gap:20px">
-            <div><strong>${esc(c.petitioner_type || 'Petitioner')}:</strong> ${esc(c.petitioner)}</div>
-            <div><strong>${esc(c.respondent_type || 'Respondent')}:</strong> ${esc(c.respondent)}</div>
-        </div>
-        <div style="margin-bottom:12px">
+        <div style="margin-bottom:16px">
             <strong>Appearing For:</strong> <span class="priority-pill" style="background:#e0e7ff;color:#4338ca">${esc(c.appearing_for || 'Petitioner')}</span>
         </div>
-        <div>${esc(c.notes || 'No briefing added.')}</div>
+        <div style="background:#f9fafb; padding:16px; border-radius:8px; border-left:4px solid var(--primary)">
+            ${esc(c.notes || 'No briefing or summary added yet.')}
+        </div>
     `;
 
     // Documents
     const docGrid = document.getElementById('cd-documents');
     if (c.attachments && c.attachments.length > 0) {
-        docGrid.innerHTML = c.attachments.map(a => `<a href="${a.url}" target="_blank" class="doc-card"><span class="doc-icon">📄</span><span class="doc-name">${esc(a.name)}</span></a>`).join('');
+        docGrid.innerHTML = c.attachments.map(att => `
+            <div class="doc-item">
+                <div class="doc-icon">📄</div>
+                <div class="doc-name">${esc(att.name)}</div>
+                <a href="${att.url}" target="_blank" class="doc-link">View File</a>
+            </div>
+        `).join('');
     } else {
-        docGrid.innerHTML = '<p class="empty-text">No documents in file.</p>';
+        docGrid.innerHTML = '<div class="empty-docs">No documents attached yet.</div>';
     }
 
-    // Timeline (empty for separate case management for now)
-    document.getElementById('cd-timeline').innerHTML = '<p class="empty-text">Timeline separation enabled.</p>';
+    // Document Upload Logic for Case File
+    document.getElementById('cd-add-doc-btn').onclick = async () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.onchange = async () => {
+            showToast('Uploading case documents...', 'info');
+            try {
+                const newFiles = [];
+                for (const file of input.files) {
+                    const auth = await API.getSignUrl({ fileName: file.name });
+                    await fetch(auth.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+                    newFiles.push({ name: file.name, url: auth.publicUrl });
+                }
+                const updatedAttachments = [...(c.attachments || []), ...newFiles];
+                await API.updateCase(c.id, { attachments: updatedAttachments });
+                showToast('Documents uploaded ✓');
+                await fetchAll();
+                openCaseFile(c.id);
+            } catch (err) { showToast(err.message, 'error'); }
+        };
+        input.click();
+    };
 
-    document.getElementById('cd-edit-btn').onclick = () => openCaseModal(caseId);
+    document.getElementById('cd-edit-btn').onclick = () => openCaseModal(c.id);
 }
 
 // ============================================================

@@ -293,57 +293,33 @@
                             <button class="btn-primary associate-plus" id="cd-edit-btn">✏️ Edit Case</button>
                         </div>
                     </div>
-                    <div class="case-meta-row">
-                        <div class="case-meta-item">
-                            <span class="meta-label">Client:</span>
-                            <span class="meta-value" id="cd-client">—</span>
+                        <div class="case-meta-row" style="margin-top:12px">
+                            <div class="case-meta-item">
+                                <span class="meta-label">Parties:</span>
+                                <span class="meta-value" id="cd-client" style="font-weight:600;font-size:1.1rem">—</span>
+                            </div>
                         </div>
-                        <div class="case-meta-item">
-                            <span class="meta-label">Case No.</span>
-                            <span id="cd-case-no" class="meta-value">-</span>
-                        </div>
-                    </div>
-                </header>
+                    </header>
 
                 <div class="case-main-grid">
                     <!-- Sidebar: Status & Info -->
                     <aside class="case-sidebar-details">
                         <div class="detail-card">
-                            <h3>Current Status</h3>
-                            <div class="status-badge-large" id="cd-stage-badge">Drafting</div>
-                            <div class="status-progress-track" id="cd-progress-bar">
-                                <div class="progress-fill"></div>
+                            <h3 style="color:var(--primary-dark)">📅 Important Dates</h3>
+                            <div class="date-item">
+                                <label style="text-transform:uppercase;font-size:0.75rem;letter-spacing:0.05em">Next Date of Hearing</label>
+                                <div class="date-val" id="cd-next-hearing" style="color:var(--danger);font-weight:700">Not Announced / Pending</div>
                             </div>
                         </div>
 
                         <div class="detail-card">
-                            <h3>Assigned To</h3>
+                            <h3 style="color:var(--primary-dark)">👤 Partner In-Charge</h3>
                             <div class="assignee-profile">
                                 <div class="profile-av" id="cd-assignee-av">??</div>
                                 <div class="profile-info">
                                     <div class="profile-name" id="cd-assignee-name">Unassigned</div>
-                                    <div class="profile-role" id="cd-assignee-role">Member</div>
+                                    <div class="profile-role" id="cd-assignee-role">Partner</div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div class="detail-card">
-                            <h3>Important Dates</h3>
-                            <div class="date-item">
-                                <label>Target Due</label>
-                                <div class="date-val" id="cd-due-date">—</div>
-                            </div>
-                            <div class="date-item">
-                                <label>Created On</label>
-                                <div class="date-val" id="cd-created-at">—</div>
-                            </div>
-                        </div>
-
-                        <div class="detail-card">
-                            <h3>Priority</h3>
-                            <div class="priority-indicator" id="cd-priority">
-                                <span class="priority-dot"></span>
-                                <span class="priority-text">Medium</span>
                             </div>
                         </div>
                     </aside>
@@ -354,20 +330,24 @@
                         <div class="content-block">
                             <div class="block-header">
                                 <h3>📂 Case Notes & Briefing</h3>
+                        <div class="case-actions-grid">
+                        <!-- Documentation Section -->
+                        <div class="detail-card full">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                <h3 style="color:var(--primary-dark)">📑 Case Documents & Attachments</h3>
+                                <button class="btn-primary" id="cd-add-doc-btn" style="padding:6px 12px;font-size:13px">+ Upload New Image/PDF</button>
                             </div>
-                            <div class="notes-content" id="cd-notes">No notes available.</div>
-                        </div>
-
-                        <!-- Documents Grid -->
-                        <div class="content-block">
-                            <div class="block-header">
-                                <h3>📎 Documents & Attachments</h3>
-                            </div>
-                            <div class="documents-grid" id="cd-documents">
-                                <p class="empty-text">No documents attached.</p>
+                            <div class="document-grid" id="cd-documents">
+                                <!-- Populated dynamically -->
                             </div>
                         </div>
 
+                        <!-- Briefing / Notes Section -->
+                        <div class="detail-card full">
+                            <h3 style="color:var(--primary-dark)">📖 Case BriefING & Summary</h3>
+                            <div class="notes-content" id="cd-notes">Loading notes...</div>
+                        </div>
+                    </div>
                         <!-- Timeline / Audit Trail -->
                         <div class="content-block">
                             <div class="block-header">
