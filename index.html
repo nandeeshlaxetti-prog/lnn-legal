@@ -82,6 +82,17 @@
                 </div>
 
                 <div class="form-group full">
+                    <label>Hearing Attendance</label>
+                    <select id="h-attendance">
+                        <option value="Firm Member Attended">Firm Member Attended</option>
+                        <option value="Senior Counsel Appointed">Senior Counsel Appointed (Assisted)</option>
+                        <option value="Associate Present">Associate Present (Memo Filed)</option>
+                        <option value="Opposite Party Absent">Opposite Party Absent (Adjourned)</option>
+                        <option value="Court Adjourned">Court Adjourned (No Hearing)</option>
+                    </select>
+                </div>
+
+                <div class="form-group full">
                     <label>What happened today? (Moves to Audit Log)</label>
                     <textarea id="h-result" rows="3" placeholder="Provide a summary of the orders or adjournment..."></textarea>
                 </div>
@@ -354,6 +365,7 @@
                         <h2 id="cd-title">Case Title</h2>
                         <div class="case-actions">
                             <button class="btn-primary" id="cd-edit-btn">✏️ Edit Case</button>
+                            <button id="cd-delete-case-btn" class="btn-secondary" style="color:#ef4444; border-color:rgba(239, 68, 68, 0.3); display:none">🗑️ Delete Case</button>
                         </div>
                     </div>
                     <div class="case-meta-row" style="margin-top:12px; display:block">
@@ -371,6 +383,10 @@
                             <div class="legal-chip">
                                 <span class="chip-label">Appearing For:</span>
                                 <span class="chip-value" id="hdr-appearing">—</span>
+                            </div>
+                            <div class="legal-chip" style="background:rgba(212, 175, 55, 0.1); border-color:rgba(212, 175, 55, 0.3)">
+                                <span class="chip-label" style="color:#d4af37">Court:</span>
+                                <span class="chip-value" id="cd-court-info" style="color:#fdf6e3">—</span>
                             </div>
                         </div>
                     </div>
@@ -588,7 +604,37 @@
         </div>
     </div>
 
-    <!-- MODAL: New Legal Case File -->
+    <!-- MODAL: Document Upload (Managed Categories) -->
+    <div class="modal-overlay" id="doc-modal-overlay" style="opacity:0; pointer-events:none">
+        <div class="modal" id="doc-modal" style="max-width:450px">
+            <div class="modal-header">
+                <h3>📑 Archive Case Document</h3>
+                <button class="modal-close" onclick="closeModal('doc-modal-overlay')">✕</button>
+            </div>
+            <form id="doc-form" class="modal-body">
+                <input type="hidden" id="doc-case-id" />
+                <div class="form-group full">
+                    <label>Archival Category <span class="required">*</span></label>
+                    <select id="doc-category" required>
+                        <option value="Pleadings">Pleadings (Main Case File)</option>
+                        <option value="Applications">Applications / IAs</option>
+                        <option value="Evidence">Evidence / Annexures</option>
+                        <option value="Court Orders">Court Orders</option>
+                        <option value="Client Docs">Client Documents & KYC</option>
+                    </select>
+                </div>
+                <div class="form-group full">
+                    <label>Select Files <span class="required">*</span></label>
+                    <input type="file" id="doc-files" multiple required />
+                    <p class="td-sub">PDFs, Images, and Documents allowed.</p>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('doc-modal-overlay')">Cancel</button>
+                    <button type="submit" class="btn-primary" id="doc-save-btn">Archive into File</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <div class="modal-overlay" id="case-modal-overlay" style="opacity:0; pointer-events:none">
         <div class="modal" id="case-modal">
             <div class="modal-header">

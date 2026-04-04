@@ -776,6 +776,10 @@ async function openCaseFile(caseId) {
     currentCaseInView = c; // Set global state
     showPage('case-detail');
     
+    // Partner-only Delete Control
+    const delBtn = document.getElementById('cd-delete-case-btn');
+    if (delBtn) delBtn.style.display = (windowCurrentUserLevel === 'admin') ? 'block' : 'none';
+    
     // Populate Case Info
     const fullNo = `${c.case_type} No. ${c.case_no}/${c.case_year}`;
     document.getElementById('cd-title').textContent = fullNo;
@@ -791,13 +795,20 @@ async function openCaseFile(caseId) {
     document.getElementById('cd-assignee-av').textContent = initials(p ? p.name : '??');
     
     // Detailed Info
-    document.getElementById('cd-next-hearing').textContent = c.next_hearing ? new Date(c.next_hearing).toLocaleDateString() : 'Not Announced / Pending';
-    if (c.purpose) document.getElementById('cd-next-hearing').textContent += ` (${c.purpose})`;
+    const nextDate = c.next_hearing;
+    const isToday = nextDate === today();
+    let nextStr = nextDate ? new Date(nextDate).toLocaleDateString() : 'Not Announced / Pending';
+    if (c.purpose) nextStr += ` (${c.purpose})`;
+    
+    document.getElementById('cd-next-hearing').innerHTML = isToday 
+        ? `<span style="background:#ef4444; color:white; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800; vertical-align:middle; margin-right:8px">MATTER FOR TODAY</span> ${nextStr}`
+        : nextStr;
+    
+    // Header Court Info
+    const courtStr = `${c.court_name || ''} ${c.court_hall ? '| ' + c.court_hall : ''}`.trim() || '—';
+    document.getElementById('cd-court-info').textContent = courtStr;
 
     document.getElementById('cd-notes').innerHTML = `
-        <div style="margin-bottom:12px; font-size:1.1rem; color:var(--text-primary); font-weight:700">
-            ${esc(c.court_name || '—')} | ${esc(c.court_hall || '—')}
-        </div>
         <div>${esc(c.notes || 'No briefing added.')}</div>
     `;
 
@@ -820,18 +831,44 @@ async function openCaseFile(caseId) {
                 <div style="margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px">
                     <div style="font-size:11px; font-weight:700; color:var(--primary); text-transform:uppercase; margin-bottom:8px">📂 ${cat}</div>
                     <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px">
-                        ${catDocs.map(d => `
-                            <a href="${d.url}" target="_blank" class="doc-card" style="padding:10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:4px; text-decoration:none; display:flex; align-items:center; gap:8px">
-                                <span style="font-size:20px">${d.type?.includes('image') ? '🖼️' : '📄'}</span>
+                        ${catDocs.map(d => {
+                            const mainIdx = docs.indexOf(d);
+                            return `
+                            <div class="doc-card" style="padding:10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:4px; display:flex; align-items:center; gap:8px">
+                                <span style="font-size:20px; flex-shrink:0">${d.type?.includes('image') ? '🖼️' : '📄'}</span>
                                 <div style="flex:1; overflow:hidden">
-                                    <div style="font-size:11px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(d.name)}</div>
+                                    <div style="font-size:11px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
                                 </div>
-                            </a>
-                        `).join('')}
+                                <div style="display:flex; gap:8px; flex-shrink:0">
+                                    <a href="${d.url}" target="_blank" style="text-decoration:none; padding:4px; font-size:12px">👁️</a>
+                                    <button class="doc-del-btn" id="cd-del-doc-btn-${mainIdx}" style="padding:4px; border:none; background:none; cursor:pointer; font-size:12px; color:#ef4444; opacity:0.6">🗑️</button>
+                                </div>
+                            </div>`;
+                        }).join('')}
                     </div>
                 </div>
             `;
         }).join('') || '<div style="color:var(--text-secondary); font-size:13px">No categorized documents.</div>';
+    }
+
+    // Professional Hearing History Log
+    const historyList = document.getElementById('cd-hearing-history');
+    if (!historyList) return;
+    const history = c.hearing_history || [];
+
+    if (history.length === 0) {
+        historyList.innerHTML = `<div style="padding:20px; text-align:center; color:var(--text-secondary); font-size:13px">No past hearing history recorded for this matter.</div>`;
+    } else {
+        historyList.innerHTML = history.slice(0).reverse().map(h => `
+            <div class="timeline-item" style="border-left:2px solid var(--primary); padding-left:16px; margin-bottom:16px; position:relative">
+                <div style="width:10px; height:10px; border-radius:50%; background:var(--primary); position:absolute; left:-6px; top:4px"></div>
+                <div style="font-size:12px; font-weight:700; color:var(--primary)">${new Date(h.date).toLocaleDateString()}</div>
+                <div style="font-size:11px; color:var(--text-secondary); margin-bottom:4px">${esc(h.purpose)} • <span style="color:var(--text-primary); font-weight:600">${esc(h.attendance || 'Attended')}</span></div>
+                <div style="font-size:13px; color:var(--text-secondary); background:var(--bg-secondary); padding:8px; border-radius:4px; margin-top:4px">
+                    ${esc(h.result)}
+                </div>
+            </div>
+        `).join('');
     }
 
     // Linked Office Works (Feature 2)
@@ -881,41 +918,86 @@ document.addEventListener('click', async e => {
                 openTaskModal(null, c.id);
                 break;
             case 'cd-add-doc-btn':
-                handleGlobalDocUpload(c.id);
+                document.getElementById('doc-case-id').value = c.id;
+                openModal('doc-modal-overlay');
                 break;
+            case 'cd-delete-case-btn':
+                if (windowCurrentUserLevel !== 'admin') {
+                    showToast('Admin privilege required.', 'error');
+                    return;
+                }
+                if (confirm(`⚠️ DELETE CASE FILE: ${c.case_type} No. ${c.case_no}/${c.case_year}?\n\nThis will permanently remove the case, all briefings, and all hearing history. This action cannot be undone.`)) {
+                    try {
+                        showToast('Deleting Litigation File...', 'info');
+                        await API.deleteCase(c.id);
+                        showToast('Case File Deleted');
+                        window.location.hash = '';
+                        initApp();
+                    } catch (err) { showToast(err.message, 'error'); }
+                }
+                break;
+        }
+
+        // Handle Document Deletion (cd-del-doc-btn-index)
+        if (btn.id.startsWith('cd-del-doc-btn-')) {
+            const index = parseInt(btn.id.split('-').pop());
+            const c = currentCaseInView;
+            if (c && confirm('Confirm removal of this document from briefcase?')) {
+                const updated = [...(c.attachments || [])];
+                updated.splice(index, 1);
+                try {
+                    showToast('Removing Artifact...', 'info');
+                    await API.updateCase(c.id, { attachments: updated });
+                    showToast('Briefcase Updated ✓');
+                    await fetchAll();
+                    openCaseFile(c.id);
+                } catch (err) { showToast(err.message, 'error'); }
+            }
         }
     }
 });
 
-async function handleGlobalDocUpload(caseId) {
+// ============================================================
+// DOCUMENT ARCHIVE HANDLER
+// ============================================================
+document.getElementById('doc-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const caseId = document.getElementById('doc-case-id').value;
+    const cat = document.getElementById('doc-category').value;
+    const fileInput = document.getElementById('doc-files');
+    
+    if (fileInput.files.length === 0) return;
+    
     const c = DB.cases.find(x => x.id === caseId);
     if (!c) return;
 
-    const catChoice = prompt("Select Category:\n1. Pleadings\n2. Applications\n3. Evidence\n4. Court Orders\n5. Client Docs", "1");
-    const categoryMap = { "1": "Pleadings", "2": "Applications", "3": "Evidence", "4": "Court Orders", "5": "Client Docs" };
-    const selectedCat = categoryMap[catChoice] || "Pleadings";
+    const btn = document.getElementById('doc-save-btn');
+    btn.textContent = 'Archiving Artifacts…';
+    btn.disabled = true;
 
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.multiple = true;
-    fileInput.onchange = async () => {
-        showToast(`Archiving Documents to ${selectedCat}...`, 'info');
-        try {
-            const newFiles = [];
-            for (const file of fileInput.files) {
-                const authRes = await API.getSignUrl({ fileName: file.name });
-                await fetch(authRes.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
-                newFiles.push({ name: file.name, url: authRes.publicUrl, category: selectedCat, type: file.type });
-            }
-            const updatedAttachments = [...(c.attachments || []), ...newFiles];
-            await API.updateCase(c.id, { attachments: updatedAttachments });
-            showToast('Briefcase Updated ✓');
-            await fetchAll();
-            openCaseFile(c.id);
-        } catch (err) { showToast(err.message, 'error'); }
-    };
-    fileInput.click();
-}
+    try {
+        showToast(`Archiving into ${cat}...`, 'info');
+        const newFiles = [];
+        for (const file of fileInput.files) {
+            const authRes = await API.getSignUrl({ fileName: file.name });
+            await fetch(authRes.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+            newFiles.push({ name: file.name, url: authRes.publicUrl, category: cat, type: file.type });
+        }
+        
+        const updatedAttachments = [...(c.attachments || []), ...newFiles];
+        await API.updateCase(c.id, { attachments: updatedAttachments });
+        
+        showToast('Briefcase Updated ✓');
+        closeModal('doc-modal-overlay');
+        await fetchAll();
+        openCaseFile(caseId);
+    } catch (err) { 
+        showToast(err.message, 'error'); 
+    } finally {
+        btn.textContent = 'Archive into File';
+        btn.disabled = false;
+    }
+});
 
 // ============================================================
 // CASE MODAL (Legal Management)
@@ -1033,13 +1115,15 @@ document.getElementById('hearing-form').addEventListener('submit', async (e) => 
     if (!oldCase) return;
 
     const lastResult = document.getElementById('h-result').value.trim();
+    const attendance = document.getElementById('h-attendance').value;
     let history = oldCase.hearing_history || [];
     
     // Archive if result provided
     if (lastResult) {
         history = [{
-            date: oldCase.next_hearing || new Date().toISOString().split('T')[0],
+            date: oldCase.next_hearing || today(),
             purpose: oldCase.purpose || 'Scheduled Hearing',
+            attendance: attendance,
             result: lastResult
         }, ...history];
     }
