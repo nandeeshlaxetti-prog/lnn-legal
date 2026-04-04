@@ -22,10 +22,11 @@ module.exports = async (req, res) => {
 
     // POST — create case
     if (req.method === 'POST') {
-        const { title, case_no, cnr_no, court_name, court_hall, petitioner, respondent, appearing_for, partner_id, notes, attachments } = req.body;
+        const { case_type, case_no, case_year, cnr_no, court_name, court_hall, petitioner, respondent, appearing_for, partner_id, notes, attachments } = req.body;
         const { data, error } = await supabase.from('cases').insert([{
-            title, 
+            case_type: case_type || null,
             case_no: case_no || null,
+            case_year: case_year || null,
             cnr_no: cnr_no || null,
             court_name: court_name || null,
             court_hall: court_hall || null,
@@ -43,10 +44,11 @@ module.exports = async (req, res) => {
     // PUT — update case
     if (req.method === 'PUT') {
         const { id } = req.query;
-        const { title, case_no, cnr_no, court_name, court_hall, petitioner, respondent, appearing_for, partner_id, notes, attachments } = req.body;
+        const { case_type, case_no, case_year, cnr_no, court_name, court_hall, petitioner, respondent, appearing_for, partner_id, notes, attachments } = req.body;
         const updates = {};
-        if (title !== undefined) updates.title = title;
+        if (case_type !== undefined) updates.case_type = case_type || null;
         if (case_no !== undefined) updates.case_no = case_no || null;
+        if (case_year !== undefined) updates.case_year = case_year || null;
         if (cnr_no !== undefined) updates.cnr_no = cnr_no || null;
         if (court_name !== undefined) updates.court_name = court_name || null;
         if (court_hall !== undefined) updates.court_hall = court_hall || null;

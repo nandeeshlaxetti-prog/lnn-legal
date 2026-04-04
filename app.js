@@ -399,10 +399,10 @@ function renderCases() {
     const cases = DB.cases;
 
     const displayCases = cases.filter(c => 
-        (c.title || '').toLowerCase().includes(searchVal) ||
+        (c.case_type || '').toLowerCase().includes(searchVal) ||
+        (c.case_no || '').toLowerCase().includes(searchVal) ||
         (c.petitioner || '').toLowerCase().includes(searchVal) ||
         (c.respondent || '').toLowerCase().includes(searchVal) ||
-        (c.case_no || '').toLowerCase().includes(searchVal) ||
         (c.cnr_no || '').toLowerCase().includes(searchVal)
     );
 
@@ -417,10 +417,11 @@ function renderCases() {
 
     tbody.innerHTML = displayCases.map(c => {
         const partner = DB.members.find(m => m.id === c.partner_id) || { name: '—' };
+        const fullNo = `${c.case_type} ${c.case_no}/${c.case_year}`;
         return `<tr>
             <td class="td-title">
-                <div>${esc(c.case_no || '—')}</div>
-                <div class="td-sub">${esc(c.title)}</div>
+                <div>${esc(fullNo)}</div>
+                <div class="td-sub">${esc(c.petitioner)} vs ${esc(c.respondent)}</div>
             </td>
             <td><code>${esc(c.cnr_no || '—')}</code></td>
             <td>
@@ -692,9 +693,10 @@ async function openCaseFile(caseId) {
     showPage('case-detail');
     
     // Populate Case Info
-    document.getElementById('cd-title').textContent = c.title;
+    const fullNo = `${c.case_type} ${c.case_no}/${c.case_year}`;
+    document.getElementById('cd-title').textContent = fullNo;
     document.getElementById('cd-client').textContent = `${c.petitioner || '—'} vs ${c.respondent || '—'}`;
-    document.getElementById('cd-case-no').textContent = c.case_no || '—';
+    document.getElementById('cd-case-no').textContent = fullNo;
     document.getElementById('cd-cnr').textContent = c.cnr_no || '—';
 
     // Sidebar Extension
@@ -741,19 +743,21 @@ function openCaseModal(caseId = null) {
         if (!c) return;
         document.getElementById('case-modal-title').textContent = 'Edit Case File';
         document.getElementById('case-id').value = c.id;
-        document.getElementById('case-title').value = c.title;
+        document.getElementById('case-type').value = c.case_type || '';
+        document.getElementById('case-no').value = c.case_no || '';
+        document.getElementById('case-year').value = c.case_year || '';
         document.getElementById('case-court').value = c.court_name || '';
         document.getElementById('case-hall').value = c.court_hall || '';
         document.getElementById('case-petitioner').value = c.petitioner || '';
         document.getElementById('case-respondent').value = c.respondent || '';
         document.getElementById('case-appearing-for').value = c.appearing_for || 'Petitioner';
         document.getElementById('case-partner').value = c.partner_id || '';
-        document.getElementById('case-no').value = c.case_no || '';
         document.getElementById('case-cnr').value = c.cnr_no || '';
         document.getElementById('case-notes').value = c.notes || '';
     } else {
         document.getElementById('case-modal-title').textContent = 'New Case File';
         document.getElementById('case-id').value = '';
+        document.getElementById('case-year').value = new Date().getFullYear();
     }
     openModal('case-modal-overlay');
 }
@@ -768,14 +772,15 @@ document.getElementById('case-form').addEventListener('submit', async e => {
     e.preventDefault();
     const id = document.getElementById('case-id').value;
     const data = {
-        title: document.getElementById('case-title').value.trim(),
+        case_type: document.getElementById('case-type').value,
+        case_no: document.getElementById('case-no').value.trim(),
+        case_year: document.getElementById('case-year').value.trim(),
         court_name: document.getElementById('case-court').value.trim(),
         court_hall: document.getElementById('case-hall').value.trim(),
         petitioner: document.getElementById('case-petitioner').value.trim(),
         respondent: document.getElementById('case-respondent').value.trim(),
         appearing_for: document.getElementById('case-appearing-for').value,
         partner_id: document.getElementById('case-partner').value,
-        case_no: document.getElementById('case-no').value.trim(),
         cnr_no: document.getElementById('case-cnr').value.trim(),
         notes: document.getElementById('case-notes').value.trim()
     };

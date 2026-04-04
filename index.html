@@ -529,22 +529,52 @@
             </div>
             <form id="case-form" class="modal-body">
                 <input type="hidden" id="case-id" />
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex:2">
+                        <label>Case Type <span class="required">*</span></label>
+                        <select id="case-type" required>
+                            <option value="">Select Type</option>
+                            <optgroup label="Civil (High Court / District)">
+                                <option value="WP">W.P. (Writ Petition)</option>
+                                <option value="WA">W.A. (Writ Appeal)</option>
+                                <option value="RFA">R.F.A. (Regular First Appeal)</option>
+                                <option value="MFA">M.F.A. (Misc. First Appeal)</option>
+                                <option value="MSA">M.S.A. (Misc. Second Appeal)</option>
+                                <option value="CP">C.P. (Civil Petition)</option>
+                                <option value="CRP">C.R.P. (Civil Revision Petition)</option>
+                                <option value="OS">O.S. (Original Suit)</option>
+                                <option value="MC">M.C. (Matrimonial Case)</option>
+                                <option value="SC">S.C. (Small Causes)</option>
+                                <option value="MISC">MISC (Miscellaneous)</option>
+                            </optgroup>
+                            <optgroup label="Criminal">
+                                <option value="CRL.A">Crl.A. (Criminal Appeal)</option>
+                                <option value="CRL.P">Crl.P. (Criminal Petition)</option>
+                                <option value="CRL.RP">Crl.RP (Criminal Revision Pet.)</option>
+                                <option value="CC">C.C. (Criminal Case)</option>
+                                <option value="PCR">P.C.R. (Private Complaint)</option>
+                                <option value="SPL.C">Spl.C. (Special Case)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:2">
+                        <label>Case Number <span class="required">*</span></label>
+                        <input type="text" id="case-no" placeholder="e.g. 12345" required />
+                    </div>
+                    <div class="form-group" style="flex:1.5">
+                        <label>Year <span class="required">*</span></label>
+                        <input type="number" id="case-year" value="2024" required />
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group full">
-                        <label>Case Title / Matter <span class="required">*</span></label>
-                        <input type="text" id="case-title" placeholder="e.g. ABC vs. XYZ Corporation" required />
+                        <label>CNR Number (Optional)</label>
+                        <input type="text" id="case-cnr" placeholder="16-digit e-Courts CNR No." />
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Case Number <span class="required">*</span></label>
-                        <input type="text" id="case-no" placeholder="e.g. OS/2024/001" required />
-                    </div>
-                    <div class="form-group">
-                        <label>CNR Number</label>
-                        <input type="text" id="case-cnr" placeholder="16-digit CNR No." />
-                    </div>
-                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label>Court <span class="required">*</span></label>
