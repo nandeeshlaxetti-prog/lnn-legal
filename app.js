@@ -1,9 +1,7 @@
-/* ===== app.js — LNN Legal (Full-Stack Edition) ===== */
-
 // ============================================================
 // IN-MEMORY STORE (populated from API)
 // ============================================================
-const DB = { tasks: [], members: [] };
+const DB = { tasks: [], members: [], cases: [] };
 
 // ============================================================
 // API LAYER — calls Vercel serverless functions
@@ -26,6 +24,11 @@ const API = {
     createTask(data) { return this.request('/api/tasks', { method: 'POST', body: data }); },
     updateTask(id, data) { return this.request(`/api/tasks?id=${id}`, { method: 'PUT', body: data }); },
     deleteTask(id) { return this.request(`/api/tasks?id=${id}`, { method: 'DELETE' }); },
+
+    getCases() { return this.request('/api/cases'); },
+    createCase(data) { return this.request('/api/cases', { method: 'POST', body: data }); },
+    updateCase(id, data) { return this.request(`/api/cases?id=${id}`, { method: 'PUT', body: data }); },
+    deleteCase(id) { return this.request(`/api/cases?id=${id}`, { method: 'DELETE' }); },
 
     getMembers() { return this.request('/api/members'); },
     createMember(data) { return this.request('/api/members', { method: 'POST', body: data }); },
@@ -125,9 +128,14 @@ function applyRoleRestrictions() {
 // FETCH ALL DATA
 // ============================================================
 async function fetchAll() {
-    const [tasks, members] = await Promise.all([API.getTasks(), API.getMembers()]);
+    const [tasks, members, cases] = await Promise.all([
+        API.getTasks(), 
+        API.getMembers(),
+        API.getCases().catch(() => []) // Handle cases as separate aspect
+    ]);
     DB.tasks = tasks;
     DB.members = members;
+    DB.cases = cases;
     applyRoleRestrictions();
 }
 
@@ -203,7 +211,7 @@ function renderDashboard() {
         return `<div class="task-list-item" onclick="openDetail('${t.id}')">
       <div class="tli-info">
         <div class="tli-title">${esc(t.title)}</div>
-        <div class="tli-meta">${t.client ? esc(t.client) + ' · ' : ''}${t.caseNo || ''}</div>
+        <div class="tli-meta">Office Task</div>
       </div>
       <span class="tli-stage ${sm.cls}">${t.stage}</span>
     </div>`;
@@ -384,28 +392,17 @@ function renderTasks() {
 }
 
 // ============================================================
-// CASES PAGE
+// CASES PAGE (Case Management)
 // ============================================================
 function renderCases() {
     const searchVal = document.getElementById('cases-search-input').value.toLowerCase();
-    
-    // Extract unique cases by CNR or CaseNo (simple grouping for now as requested)
-    const uniqueKeys = new Set();
-    const cases = [];
-    
-    [...DB.tasks].forEach(t => {
-        const key = t.cnr || t.caseNo || t.title;
-        if (!uniqueKeys.has(key)) {
-            uniqueKeys.add(key);
-            cases.push(t);
-        }
-    });
+    const cases = DB.cases;
 
     const displayCases = cases.filter(c => 
         (c.title || '').toLowerCase().includes(searchVal) ||
         (c.client || '').toLowerCase().includes(searchVal) ||
-        (c.caseNo || '').toLowerCase().includes(searchVal) ||
-        (c.cnr || '').toLowerCase().includes(searchVal)
+        (c.case_no || '').toLowerCase().includes(searchVal) ||
+        (c.cnr_no || '').toLowerCase().includes(searchVal)
     );
 
     const tbody = document.getElementById('cases-table-body');
@@ -418,18 +415,18 @@ function renderCases() {
     empty.style.display = 'none';
 
     tbody.innerHTML = displayCases.map(c => {
-        const sm = STAGE_META[c.stage] || {};
         return `<tr>
             <td class="td-title">
-                <div>${esc(c.caseNo || '—')}</div>
+                <div>${esc(c.case_no || '—')}</div>
                 <div class="td-sub">${esc(c.title)}</div>
             </td>
-            <td><code>${esc(c.cnr || '—')}</code></td>
+            <td><code>${esc(c.cnr_no || '—')}</code></td>
             <td><strong>${esc(c.client || '—')}</strong></td>
-            <td><span class="stage-badge ${sm.cls}">${c.stage}</span></td>
-            <td>${esc(c.title)}</td>
+            <td>—</td>
+            <td>—</td>
             <td>
-                <button class="btn-primary" style="padding:4px 12px;font-size:12px" onclick="openCaseDetail('${c.id}')">📂 View File</button>
+                <button class="btn-primary" style="padding:4px 12px;font-size:12px" onclick="openCaseFile('${c.id}')">📂 View File</button>
+                <button class="action-btn" onclick="openCaseModal('${c.id}')" title="Edit Properties">✏️</button>
             </td>
         </tr>`;
     }).join('');
@@ -481,29 +478,16 @@ function openTaskModal(taskId = null) {
     if (taskId) {
         const t = DB.tasks.find(t => t.id === taskId);
         if (!t) return;
-        document.getElementById('task-modal-title').textContent = 'Edit Task';
+        document.getElementById('task-modal-title').textContent = 'Edit Office Task';
         document.getElementById('task-id').value = t.id;
         document.getElementById('task-title').value = t.title;
-        document.getElementById('task-client').value = t.client || '';
-        document.getElementById('task-case-no').value = t.caseNo || '';
-        document.getElementById('task-cnr').value = t.cnr || '';
         document.getElementById('task-stage').value = t.stage;
         document.getElementById('task-priority').value = t.priority;
         document.getElementById('task-due').value = t.due || '';
         document.getElementById('task-notes').value = t.notes || '';
-        currentTaskAttachments = t.attachments ? [...t.attachments] : [];
-
-        if (currentTaskAttachments.length > 0) {
-            document.getElementById('task-file-list').innerHTML = currentTaskAttachments.map((a, i) =>
-                `<div class="attachment-item">
-           <a href="${a.url}" target="_blank">📄 ${esc(a.name)}</a>
-           <button type="button" class="remove-att-btn" onclick="removeAttachment(${i})">✕</button>
-         </div>`
-            ).join('');
-        }
         populateAssigneeSelect('task-assignee', t.assigneeId || '');
     } else {
-        document.getElementById('task-modal-title').textContent = 'New Task';
+        document.getElementById('task-modal-title').textContent = 'New Office Task';
         document.getElementById('task-id').value = '';
     }
     openModal('task-modal-overlay');
@@ -550,9 +534,6 @@ document.getElementById('task-form').addEventListener('submit', async e => {
 
         const data = {
             title,
-            client: document.getElementById('task-client').value.trim(),
-            caseNo: document.getElementById('task-case-no').value.trim(),
-            cnr: document.getElementById('task-cnr').value.trim(),
             assigneeId: document.getElementById('task-assignee').value,
             stage: document.getElementById('task-stage').value,
             priority: document.getElementById('task-priority').value,
@@ -676,8 +657,7 @@ async function openDetail(taskId) {
     document.getElementById('detail-title').textContent = t.title;
     document.getElementById('detail-body').innerHTML = `
     <div class="detail-grid" style="grid-template-columns:1fr 1fr;gap:12px">
-      <div class="detail-field"><label>Client</label><p>${esc(t.client || '—')}</p></div>
-      <div class="detail-field"><label>Case No.</label><p>${esc(t.caseNo || '—')}</p></div>
+      <div class="detail-field"><label>Office Action</label><p>${esc(t.title)}</p></div>
       <div class="detail-field"><label>Assigned To</label>
         <div class="assignee-chip" style="margin-top:4px">
           <div class="chip-av">${initials(member.name)}</div>${esc(member.name)}
@@ -687,130 +667,104 @@ async function openDetail(taskId) {
       <div class="detail-field"><label>Stage</label><p><span class="stage-badge ${sm.cls}">${t.stage}</span></p></div>
       <div class="detail-field"><label>Due Date</label><p class="due-text ${ds}">${dueTxt(t.due)}</p></div>
     </div>
-    <div class="detail-field" style="margin:16px 0"><label>Briefing & Notes</label>
+    <div class="detail-field" style="margin:16px 0"><label>Office Notes</label>
       <div class="detail-notes" style="background:var(--bg-secondary);padding:12px;border-radius:6px;font-size:14px">${esc(t.notes || 'No notes.')}</div>
     </div>
     
     <div class="modal-actions" style="border-top:1px solid var(--border);padding-top:16px">
       <button class="btn-secondary" onclick="closeModal('detail-modal-overlay')">Close</button>
-      <button class="btn-primary" onclick="closeModal('detail-modal-overlay');openCaseDetail('${t.id}')">📂 Open Case File</button>
+      <button class="btn-primary" onclick="closeModal('detail-modal-overlay');openTaskModal('${t.id}')">✏️ Edit Action</button>
     </div>`;
 }
 
 // ============================================================
-// CASE DETAIL PAGE (Digital Case File)
+// CASE FILE DIALOG
 // ============================================================
-async function openCaseDetail(taskId) {
-    const t = DB.tasks.find(task => task.id === taskId);
-    if (!t) return showToast('Case not found', 'error');
+async function openCaseFile(caseId) {
+    const c = DB.cases.find(x => x.id === caseId);
+    if (!c) return showToast('Case file not found', 'error');
 
-    // Update Hash for Deep Linking
-    window.location.hash = `case/${taskId}`;
-    
     showPage('case-detail');
     
-    // Populate Basic Info
-    document.getElementById('cd-title').textContent = t.title;
-    document.getElementById('cd-client').textContent = t.client || '—';
-    document.getElementById('cd-case-no').textContent = t.caseNo || '—';
-    document.getElementById('cd-cnr').textContent = t.cnr || '—'; // Support for CNR if present
+    // Populate Case Info
+    document.getElementById('cd-title').textContent = c.title;
+    document.getElementById('cd-client').textContent = c.client || '—';
+    document.getElementById('cd-case-no').textContent = c.case_no || '—';
+    document.getElementById('cd-cnr').textContent = c.cnr_no || '—';
 
-    // Side details
-    const member = getMember(t.assigneeId);
-    const sm = STAGE_META[t.stage] || STAGE_META['Drafting'];
-    const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
-    
-    const badge = document.getElementById('cd-stage-badge');
-    badge.textContent = t.stage;
-    badge.style.backgroundColor = sm.dot + '20'; // 20% opacity
-    badge.style.color = sm.dot;
-    badge.style.border = `1px solid ${sm.dot}`;
-
-    const progressIdx = STAGES.indexOf(t.stage);
-    const progressPct = ((progressIdx + 1) / STAGES.length) * 100;
-    document.querySelector('#cd-progress-bar .progress-fill').style.width = `${progressPct}%`;
-    document.querySelector('#cd-progress-bar .progress-fill').style.backgroundColor = sm.dot;
-
-    document.getElementById('cd-assignee-av').textContent = initials(member.name);
-    document.getElementById('cd-assignee-name').textContent = member.name;
-    document.getElementById('cd-assignee-role').textContent = member.role || 'Team Member';
-    
-    document.getElementById('cd-due-date').textContent = dueTxt(t.due);
-    document.getElementById('cd-created-at').textContent = new Date(t.createdAt).toLocaleDateString();
-    
-    const pDot = document.querySelector('#cd-priority .priority-dot');
-    const pText = document.querySelector('#cd-priority .priority-text');
-    pDot.style.backgroundColor = pm.color;
-    pText.textContent = t.priority.charAt(0).toUpperCase() + t.priority.slice(1);
-    pText.style.color = pm.color;
+    // Sidebar
+    document.getElementById('cd-stage-badge').textContent = 'Legal Archive';
+    document.getElementById('cd-assignee-name').textContent = 'Principal Partner';
+    document.getElementById('cd-assignee-role').textContent = 'Case Lead';
+    document.getElementById('cd-created-at').textContent = new Date(c.created_at).toLocaleDateString();
 
     // Notes
-    document.getElementById('cd-notes').textContent = t.notes || 'No briefing or notes provided for this case.';
+    document.getElementById('cd-notes').textContent = c.notes || 'No case facts provided.';
 
     // Documents
     const docGrid = document.getElementById('cd-documents');
-    if (t.attachments && t.attachments.length > 0) {
-        docGrid.innerHTML = t.attachments.map(a => `
-            <a href="${a.url}" target="_blank" class="doc-card">
-                <span class="doc-icon">📄</span>
-                <span class="doc-name" title="${esc(a.name)}">${esc(a.name)}</span>
-            </a>
-        `).join('');
+    if (c.attachments && c.attachments.length > 0) {
+        docGrid.innerHTML = c.attachments.map(a => `<a href="${a.url}" target="_blank" class="doc-card"><span class="doc-icon">📄</span><span class="doc-name">${esc(a.name)}</span></a>`).join('');
     } else {
-        docGrid.innerHTML = '<p class="empty-text">No documents attached.</p>';
+        docGrid.innerHTML = '<p class="empty-text">No documents in file.</p>';
     }
 
-    // Timeline / History
-    const timeline = document.getElementById('cd-timeline');
-    timeline.innerHTML = '<p class="empty-text">Loading history...</p>';
-    
+    // Timeline (empty for separate case management for now)
+    document.getElementById('cd-timeline').innerHTML = '<p class="empty-text">Timeline separation enabled.</p>';
+
+    document.getElementById('cd-edit-btn').onclick = () => openCaseModal(caseId);
+}
+
+// ============================================================
+// CASE MODAL (Legal Management)
+// ============================================================
+function openCaseModal(caseId = null) {
+    const form = document.getElementById('case-form');
+    form.reset();
+    if (caseId) {
+        const c = DB.cases.find(x => x.id === caseId);
+        if (!c) return;
+        document.getElementById('case-modal-title').textContent = 'Edit Case File';
+        document.getElementById('case-id').value = c.id;
+        document.getElementById('case-title').value = c.title;
+        document.getElementById('case-client').value = c.client;
+        document.getElementById('case-court').value = c.court_name || '';
+        document.getElementById('case-no').value = c.case_no || '';
+        document.getElementById('case-cnr').value = c.cnr_no || '';
+        document.getElementById('case-notes').value = c.notes || '';
+    } else {
+        document.getElementById('case-modal-title').textContent = 'New Case File';
+        document.getElementById('case-id').value = '';
+    }
+    openModal('case-modal-overlay');
+}
+
+document.getElementById('case-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = document.getElementById('case-id').value;
+    const data = {
+        title: document.getElementById('case-title').value.trim(),
+        client: document.getElementById('case-client').value.trim(),
+        court_name: document.getElementById('case-court').value.trim(),
+        case_no: document.getElementById('case-no').value.trim(),
+        cnr_no: document.getElementById('case-cnr').value.trim(),
+        notes: document.getElementById('case-notes').value.trim()
+    };
     try {
-        const logs = await API.getLogs(taskId);
-        if (logs.length === 0) {
-            timeline.innerHTML = '<p class="empty-text">No history recorded yet.</p>';
+        if (id) {
+            const res = await API.updateCase(id, data);
+            const idx = DB.cases.findIndex(x => x.id === id);
+            DB.cases[idx] = res;
+            showToast('Case file updated ✓');
         } else {
-            timeline.innerHTML = logs.map(l => {
-                let dotColor = '#6366f1';
-                if (l.action_type === 'stage') dotColor = '#f59e0b';
-                if (l.action_type === 'reassign') dotColor = '#3b82f6';
-                if (l.action_type === 'created') dotColor = '#10b981';
-                
-                return `
-                <div class="timeline-item">
-                    <div class="timeline-dot" style="background:${dotColor}"></div>
-                    <div class="timeline-time">${new Date(l.created_at).toLocaleString()}</div>
-                    <div class="timeline-content">
-                        <span class="timeline-user">${esc(l.user_name)}</span> ${esc(l.description)}
-                    </div>
-                </div>
-                `;
-            }).join('');
+            const res = await API.createCase(data);
+            DB.cases.unshift(res);
+            showToast('Case file created ✓');
         }
-    } catch (e) {
-        timeline.innerHTML = '<p class="empty-text" style="color:#ef4444">Failed to load history.</p>';
-    }
-
-    // Edit Button
-    document.getElementById('cd-edit-btn').onclick = () => openTaskModal(taskId);
-}
-
-// Keep the old openDetail for backward compatibility or small dialogs if needed
-async function openDetail(taskId) {
-    openCaseDetail(taskId);
-}
-
-async function changeStage(taskId, newStage) {
-    const t = DB.tasks.find(t => t.id === taskId);
-    if (!t) return;
-    t.stage = newStage; // optimistic
-    closeModal('detail-modal-overlay');
-    renderPage(currentPage);
-    try {
-        await API.updateTask(taskId, { stage: newStage, _userName: document.getElementById('current-user-name').textContent });
-        showToast(`Moved to "${newStage}"`, 'success');
-        await fetchAll(); renderPage(currentPage);
-    } catch (err) { showToast('Error updating stage', 'error'); await fetchAll(); renderPage(currentPage); }
-}
+        closeModal('case-modal-overlay');
+        renderCases();
+    } catch (err) { showToast(err.message, 'error'); }
+});
 
 // ============================================================
 // DELETE
@@ -883,6 +837,9 @@ document.getElementById('add-member-btn').addEventListener('click', () => openMe
 ['member-modal-close', 'member-cancel-btn'].forEach(id =>
     document.getElementById(id)?.addEventListener('click', () => closeModal('member-modal-overlay'))
 );
+['case-modal-close', 'case-cancel-btn'].forEach(id =>
+    document.getElementById(id)?.addEventListener('click', () => closeModal('case-modal-overlay'))
+);
 document.getElementById('detail-modal-close').addEventListener('click', () => closeModal('detail-modal-overlay'));
 document.querySelectorAll('.modal-overlay').forEach(overlay =>
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); })
@@ -892,11 +849,7 @@ document.getElementById('sidebar-toggle').addEventListener('click', () =>
 );
 
 document.getElementById('cases-search-input').addEventListener('input', renderCases);
-document.getElementById('add-case-btn').addEventListener('click', () => {
-    // Redirect to Task Modal but focus on Case Info
-    openTaskModal();
-    showToast('Add a new legal file here', 'info');
-});
+document.getElementById('add-case-btn').addEventListener('click', () => openCaseModal());
 
 document.getElementById('case-back-btn').addEventListener('click', () => {
     window.location.hash = ''; // Clear hash

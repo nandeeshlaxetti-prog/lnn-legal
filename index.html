@@ -402,24 +402,8 @@
 
                 <div class="form-row">
                     <div class="form-group full">
-                        <label>Task / Case Title <span class="required">*</span></label>
-                        <input type="text" id="task-title" placeholder="e.g. Draft Legal Notice – Loan #12345"
-                            required />
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Client Name</label>
-                        <input type="text" id="task-client" placeholder="Client / Party name" />
-                    </div>
-                    <div class="form-group">
-                        <label>Case / File Number</label>
-                        <input type="text" id="task-case-no" placeholder="e.g. CC/2024/001" />
-                    </div>
-                    <div class="form-group">
-                        <label>CNR Number</label>
-                        <input type="text" id="task-cnr" placeholder="e.g. KABC010012342024" />
+                        <label>Task Title <span class="required">*</span></label>
+                        <input type="text" id="task-title" placeholder="e.g. Draft Legal Notice" required />
                     </div>
                 </div>
 
@@ -533,6 +517,51 @@
                 <button class="modal-close" id="detail-modal-close">✕</button>
             </div>
             <div class="modal-body" id="detail-body"></div>
+        </div>
+    </div>
+
+    <!-- MODAL: New/Edit Legal Case -->
+    <div class="modal-overlay" id="case-modal-overlay">
+        <div class="modal" id="case-modal">
+            <div class="modal-header">
+                <h2 id="case-modal-title">New Legal Case</h2>
+                <button class="modal-close" id="case-modal-close">✕</button>
+            </div>
+            <form id="case-form" class="modal-body">
+                <input type="hidden" id="case-id" />
+                <div class="form-group full">
+                    <label>Case Title <span class="required">*</span></label>
+                    <input type="text" id="case-title" placeholder="e.g. ABC vs. XYZ Corporation" required />
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Client Name <span class="required">*</span></label>
+                        <input type="text" id="case-client" placeholder="Full name of client" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Court Name</label>
+                        <input type="text" id="case-court" placeholder="e.g. High Court of Karnataka" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Case / File Number</label>
+                        <input type="text" id="case-no" placeholder="e.g. OS/2024/001" />
+                    </div>
+                    <div class="form-group">
+                        <label>CNR Number</label>
+                        <input type="text" id="case-cnr" placeholder="16-digit CNR No." />
+                    </div>
+                </div>
+                <div class="form-group full">
+                    <label>Brief & Summary</label>
+                    <textarea id="case-notes" rows="4" placeholder="Brief facts of the case..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="case-cancel-btn">Cancel</button>
+                    <button type="submit" class="btn-primary" id="case-save-btn">Save Case File</button>
+                </div>
+            </form>
         </div>
     </div>
 
