@@ -700,7 +700,6 @@ async function openCaseFile(caseId) {
 
     // Populate Header Metadata Chips
     document.getElementById('hdr-stage').textContent = c.stage || 'Pending';
-    document.getElementById('hdr-law').textContent = c.law || '—';
     document.getElementById('hdr-appearing').textContent = c.appearing_for || '—';
 
     // Sidebar Extension
@@ -800,8 +799,6 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-petitioner').value = c.petitioner || '';
         document.getElementById('case-respondent-type').value = c.respondent_type || 'Respondent';
         document.getElementById('case-respondent').value = c.respondent || '';
-        
-        document.getElementById('case-law').value = c.law || '';
 
         // Sync appearing for BEFORE setting its value
         updateAppearingForOptions();
@@ -813,7 +810,6 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-modal-title').textContent = 'New Case File';
         document.getElementById('case-id').value = '';
         document.getElementById('case-year').value = new Date().getFullYear();
-        document.getElementById('case-law').value = '';
         updateAppearingForOptions();
     }
     openModal('case-modal-overlay');
@@ -858,8 +854,7 @@ document.getElementById('case-form').addEventListener('submit', async e => {
         respondent: document.getElementById('case-respondent').value.trim(),
         appearing_for: document.getElementById('case-appearing-for').value,
         partner_id: document.getElementById('case-partner').value,
-        notes: document.getElementById('case-notes').value.trim(),
-        law: document.getElementById('case-law').value.trim()
+        notes: document.getElementById('case-notes').value.trim()
     };
 
     try {
@@ -1046,14 +1041,13 @@ document.getElementById('case-ai-brief-btn').onclick = () => {
     const hall = document.getElementById('case-court-hall').value || '[Court Hall]';
     const pet = document.getElementById('case-petitioner').value || '[Petitioner]';
     const res = document.getElementById('case-respondent').value || '[Respondent]';
-    const law = document.getElementById('case-law').value || '[Relevant Law]';
     const forSide = document.getElementById('case-appearing-for').value || '[Party]';
 
-    const narrative = `This is a ${type} matter filed before the ${court} (${hall}). The case, registered as ${type} No. ${no}/${year}, centers on ${law}. 
+    const narrative = `This is a ${type} matter filed before the ${court} (${hall}). The case is officially registered as ${type} No. ${no}/${year}. 
 
 The firm is appearing for the ${forSide} (${forSide === 'Petitioner' ? pet : res}). 
 
-The primary objective of the litigation is to represent the ${forSide}'s interest effectively before the Bench. Legal associates are directed to prioritize the research and drafting relevant to ${law} for the upcoming court sessions.`;
+The primary objective of the litigation is to represent the ${forSide}'s interest effectively before the Bench. Legal associates are directed to ensure all necessary research and documentation are prioritized for the upcoming court sessions.`;
 
     document.getElementById('case-notes').value = narrative;
     showToast('AI Briefing Drafted ✨');
