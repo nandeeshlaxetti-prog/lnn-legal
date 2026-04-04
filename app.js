@@ -166,7 +166,7 @@ function showPage(page) {
     
     document.getElementById(`nav-${page}`)?.classList.add('active');
     document.getElementById('page-title').textContent =
-        { dashboard: 'Dashboard', board: 'Work Board', tasks: 'All Tasks', team: 'Team', 'case-detail': 'Case File' }[page] || 'Legal Management';
+        { dashboard: 'Dashboard', board: 'Work Board', cases: 'Cases', tasks: 'All Tasks', team: 'Team', 'case-detail': 'Case File' }[page] || 'Legal Management';
     
     currentPage = page;
     renderPage(page);
@@ -175,9 +175,9 @@ function showPage(page) {
 function renderPage(page) {
     if (page === 'dashboard') renderDashboard();
     if (page === 'board') renderBoard();
+    if (page === 'cases') renderCases();
     if (page === 'tasks') renderTasks();
     if (page === 'team') renderTeam();
-    // 'case-detail' is rendered via openCaseDetail directly
 }
 
 // ============================================================
@@ -200,7 +200,7 @@ function renderDashboard() {
     const recent = tasks.slice(0, 6);
     recentList.innerHTML = recent.map(t => {
         const sm = STAGE_META[t.stage] || {};
-        return `<div class="task-list-item" onclick="openCaseDetail('${t.id}')">
+        return `<div class="task-list-item" onclick="openDetail('${t.id}')">
       <div class="tli-info">
         <div class="tli-title">${esc(t.title)}</div>
         <div class="tli-meta">${t.client ? esc(t.client) + ' · ' : ''}${t.caseNo || ''}</div>
@@ -316,7 +316,7 @@ function buildKCard(task) {
       ${task.due ? `<span class="kcard-due ${ds}">${dueTxt(task.due)}</span>` : ''}
     </div>
     <div class="kcard-actions">
-      <button class="kcard-btn" onclick="openCaseDetail('${task.id}')">👁 View</button>
+      <button class="kcard-btn" onclick="openDetail('${task.id}')">👁 View</button>
       <button class="kcard-btn associate-plus" onclick="openTaskModal('${task.id}')">✏️ Edit</button>
       <button class="kcard-btn admin-only" onclick="deleteTask('${task.id}')">🗑 Delete</button>
     </div>`;
@@ -345,7 +345,8 @@ function renderTasks() {
     if (searchVal) tasks = tasks.filter(t =>
         (t.title || '').toLowerCase().includes(searchVal) ||
         (t.client || '').toLowerCase().includes(searchVal) ||
-        (t.caseNo || '').toLowerCase().includes(searchVal)
+        (t.caseNo || '').toLowerCase().includes(searchVal) ||
+        (t.cnr || '').toLowerCase().includes(searchVal)
     );
 
     const tbody = document.getElementById('tasks-table-body');
@@ -365,7 +366,7 @@ function renderTasks() {
         const sm = STAGE_META[t.stage] || {};
         const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
         const ds = dueStatus(t.due);
-        return `<tr onclick="openCaseDetail('${t.id}')">
+        return `<tr onclick="openDetail('${t.id}')">
       <td class="td-title">
         <div>${esc(t.title)}</div>
         ${t.client || t.caseNo ? `<div class="td-sub">${t.client ? esc(t.client) : ''}${t.caseNo ? ' · ' + esc(t.caseNo) : ''}</div>` : ''}
@@ -379,6 +380,58 @@ function renderTasks() {
         <button class="action-btn admin-only" title="Delete" onclick="deleteTask('${t.id}')">🗑️</button>
       </td>
     </tr>`;
+    }).join('');
+}
+
+// ============================================================
+// CASES PAGE
+// ============================================================
+function renderCases() {
+    const searchVal = document.getElementById('cases-search-input').value.toLowerCase();
+    
+    // Extract unique cases by CNR or CaseNo (simple grouping for now as requested)
+    const uniqueKeys = new Set();
+    const cases = [];
+    
+    [...DB.tasks].forEach(t => {
+        const key = t.cnr || t.caseNo || t.title;
+        if (!uniqueKeys.has(key)) {
+            uniqueKeys.add(key);
+            cases.push(t);
+        }
+    });
+
+    const displayCases = cases.filter(c => 
+        (c.title || '').toLowerCase().includes(searchVal) ||
+        (c.client || '').toLowerCase().includes(searchVal) ||
+        (c.caseNo || '').toLowerCase().includes(searchVal) ||
+        (c.cnr || '').toLowerCase().includes(searchVal)
+    );
+
+    const tbody = document.getElementById('cases-table-body');
+    const empty = document.getElementById('cases-empty');
+    if (displayCases.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'flex';
+        return;
+    }
+    empty.style.display = 'none';
+
+    tbody.innerHTML = displayCases.map(c => {
+        const sm = STAGE_META[c.stage] || {};
+        return `<tr>
+            <td class="td-title">
+                <div>${esc(c.caseNo || '—')}</div>
+                <div class="td-sub">${esc(c.title)}</div>
+            </td>
+            <td><code>${esc(c.cnr || '—')}</code></td>
+            <td><strong>${esc(c.client || '—')}</strong></td>
+            <td><span class="stage-badge ${sm.cls}">${c.stage}</span></td>
+            <td>${esc(c.title)}</td>
+            <td>
+                <button class="btn-primary" style="padding:4px 12px;font-size:12px" onclick="openCaseDetail('${c.id}')">📂 View File</button>
+            </td>
+        </tr>`;
     }).join('');
 }
 
@@ -596,6 +649,55 @@ document.getElementById('member-form').addEventListener('submit', async e => {
 });
 
 // ============================================================
+// TASK DETAIL MODAL
+// ============================================================
+async function openDetail(taskId) {
+    const t = DB.tasks.find(t => t.id === taskId);
+    if (!t) return;
+
+    document.getElementById('detail-body').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Loading history...</div>';
+    openModal('detail-modal-overlay');
+
+    const logs = await API.getLogs(taskId).catch(() => []);
+    const logsHtml = logs.length === 0 ? '<p style="font-size:13px;color:var(--text-muted);margin-top:8px">No history yet.</p>' :
+        '<div class="audit-trail">' + logs.map(l => `
+        <div class="audit-item">
+          <div class="audit-dot" style="background: ${l.action_type === 'stage' ? '#f59e0b' : l.action_type === 'reassign' ? '#3b82f6' : l.action_type === 'created' ? '#10b981' : '#6366f1'}"></div>
+          <div class="audit-time">${new Date(l.created_at).toLocaleString()}</div>
+          <div><span class="audit-user">${esc(l.user_name)}</span> ${esc(l.description)}</div>
+        </div>
+      `).join('') + '</div>';
+
+    const member = getMember(t.assigneeId);
+    const sm = STAGE_META[t.stage] || {};
+    const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
+    const ds = dueStatus(t.due);
+
+    document.getElementById('detail-title').textContent = t.title;
+    document.getElementById('detail-body').innerHTML = `
+    <div class="detail-grid" style="grid-template-columns:1fr 1fr;gap:12px">
+      <div class="detail-field"><label>Client</label><p>${esc(t.client || '—')}</p></div>
+      <div class="detail-field"><label>Case No.</label><p>${esc(t.caseNo || '—')}</p></div>
+      <div class="detail-field"><label>Assigned To</label>
+        <div class="assignee-chip" style="margin-top:4px">
+          <div class="chip-av">${initials(member.name)}</div>${esc(member.name)}
+        </div>
+      </div>
+      <div class="detail-field"><label>Priority</label><p><span class="priority-pill ${pm.cls}">${pm.label}</span></p></div>
+      <div class="detail-field"><label>Stage</label><p><span class="stage-badge ${sm.cls}">${t.stage}</span></p></div>
+      <div class="detail-field"><label>Due Date</label><p class="due-text ${ds}">${dueTxt(t.due)}</p></div>
+    </div>
+    <div class="detail-field" style="margin:16px 0"><label>Briefing & Notes</label>
+      <div class="detail-notes" style="background:var(--bg-secondary);padding:12px;border-radius:6px;font-size:14px">${esc(t.notes || 'No notes.')}</div>
+    </div>
+    
+    <div class="modal-actions" style="border-top:1px solid var(--border);padding-top:16px">
+      <button class="btn-secondary" onclick="closeModal('detail-modal-overlay')">Close</button>
+      <button class="btn-primary" onclick="closeModal('detail-modal-overlay');openCaseDetail('${t.id}')">📂 Open Case File</button>
+    </div>`;
+}
+
+// ============================================================
 // CASE DETAIL PAGE (Digital Case File)
 // ============================================================
 async function openCaseDetail(taskId) {
@@ -788,6 +890,13 @@ document.querySelectorAll('.modal-overlay').forEach(overlay =>
 document.getElementById('sidebar-toggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open')
 );
+
+document.getElementById('cases-search-input').addEventListener('input', renderCases);
+document.getElementById('add-case-btn').addEventListener('click', () => {
+    // Redirect to Task Modal but focus on Case Info
+    openTaskModal();
+    showToast('Add a new legal file here', 'info');
+});
 
 document.getElementById('case-back-btn').addEventListener('click', () => {
     window.location.hash = ''; // Clear hash

@@ -2051,3 +2051,53 @@ body.role-intern .associate-plus {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================ */
+/* CASES PAGE STYLES */
+/* ============================================================ */
+
+#page-cases {
+  padding: 24px;
+}
+
+.cases-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.cases-controls {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  max-width: 400px;
+}
+
+#cases-table th {
+  background: var(--bg-card);
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+#cases-table tr:hover {
+  background: var(--bg-hover) !important;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
