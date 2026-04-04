@@ -51,7 +51,7 @@ function getClient() {
 function mapTask(t) {
     return {
         id: t.id, title: t.title, client: t.client,
-        caseNo: t.case_no, assigneeId: t.assignee_id,
+        caseNo: t.case_no, cnr: t.cnr_no, assigneeId: t.assignee_id,
         stage: t.stage, priority: t.priority,
         due: t.due, notes: t.notes, createdAt: t.created_at,
         attachments: t.attachments || []
@@ -83,10 +83,11 @@ module.exports = async (req, res) => {
 
     // POST — create task
     if (req.method === 'POST') {
-        const { title, client, caseNo, assigneeId, stage, priority, due, notes, attachments, _userName } = req.body;
+        const { title, client, caseNo, cnr, assigneeId, stage, priority, due, notes, attachments, _userName } = req.body;
         const { data, error } = await supabase.from('tasks').insert([{
             title, client: client || null,
             case_no: caseNo || null,
+            cnr_no: cnr || null,
             assignee_id: assigneeId || null,
             stage: stage || 'Drafting',
             priority: priority || 'medium',
@@ -109,7 +110,7 @@ module.exports = async (req, res) => {
     // PUT — update task
     if (req.method === 'PUT') {
         const { id } = req.query;
-        const { title, client, caseNo, assigneeId, stage, priority, due, notes, attachments, _userName } = req.body;
+        const { title, client, caseNo, cnr, assigneeId, stage, priority, due, notes, attachments, _userName } = req.body;
 
         const { data: oldTask } = await supabase.from('tasks').select('*').eq('id', id).single();
 
@@ -117,6 +118,7 @@ module.exports = async (req, res) => {
         if (title !== undefined) updates.title = title;
         if (client !== undefined) updates.client = client || null;
         if (caseNo !== undefined) updates.case_no = caseNo || null;
+        if (cnr !== undefined) updates.cnr_no = cnr || null;
         if (assigneeId !== undefined) updates.assignee_id = assigneeId || null;
         if (stage !== undefined) updates.stage = stage;
         if (priority !== undefined) updates.priority = priority;

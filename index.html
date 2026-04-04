@@ -239,12 +239,118 @@
         </section>
 
         <!-- TEAM PAGE -->
+        <!-- TEAM PAGE -->
         <section class="page" id="page-team">
             <div class="team-header">
                 <button class="btn-primary admin-only" id="add-member-btn">+ Add Member</button>
             </div>
             <div class="team-grid" id="team-grid"></div>
         </section>
+
+        <!-- CASE DETAIL PAGE (Digital Case File) -->
+        <section class="page" id="page-case-detail">
+            <div class="case-detail-container">
+                <header class="case-header">
+                    <button class="btn-back" id="case-back-btn">← Back to Dashboard</button>
+                    <div class="case-title-row">
+                        <h2 id="cd-title">Case Title</h2>
+                        <div class="case-actions">
+                            <button class="btn-primary associate-plus" id="cd-edit-btn">✏️ Edit Case</button>
+                        </div>
+                    </div>
+                    <div class="case-meta-row">
+                        <div class="case-meta-item">
+                            <span class="meta-label">Client:</span>
+                            <span class="meta-value" id="cd-client">—</span>
+                        </div>
+                        <div class="case-meta-item">
+                            <span class="meta-label">Case No:</span>
+                            <span class="meta-value" id="cd-case-no">—</span>
+                        </div>
+                        <div class="case-meta-item">
+                            <span class="meta-label">CNR No:</span>
+                            <span class="meta-value" id="cd-cnr">—</span>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="case-main-grid">
+                    <!-- Sidebar: Status & Info -->
+                    <aside class="case-sidebar-details">
+                        <div class="detail-card">
+                            <h3>Current Status</h3>
+                            <div class="status-badge-large" id="cd-stage-badge">Drafting</div>
+                            <div class="status-progress-track" id="cd-progress-bar">
+                                <div class="progress-fill"></div>
+                            </div>
+                        </div>
+
+                        <div class="detail-card">
+                            <h3>Assigned To</h3>
+                            <div class="assignee-profile">
+                                <div class="profile-av" id="cd-assignee-av">??</div>
+                                <div class="profile-info">
+                                    <div class="profile-name" id="cd-assignee-name">Unassigned</div>
+                                    <div class="profile-role" id="cd-assignee-role">Member</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-card">
+                            <h3>Important Dates</h3>
+                            <div class="date-item">
+                                <label>Target Due</label>
+                                <div class="date-val" id="cd-due-date">—</div>
+                            </div>
+                            <div class="date-item">
+                                <label>Created On</label>
+                                <div class="date-val" id="cd-created-at">—</div>
+                            </div>
+                        </div>
+
+                        <div class="detail-card">
+                            <h3>Priority</h3>
+                            <div class="priority-indicator" id="cd-priority">
+                                <span class="priority-dot"></span>
+                                <span class="priority-text">Medium</span>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <!-- Main Content Sections -->
+                    <div class="case-content-sections">
+                        <!-- Notes Section -->
+                        <div class="content-block">
+                            <div class="block-header">
+                                <h3>📂 Case Notes & Briefing</h3>
+                            </div>
+                            <div class="notes-content" id="cd-notes">No notes available.</div>
+                        </div>
+
+                        <!-- Documents Grid -->
+                        <div class="content-block">
+                            <div class="block-header">
+                                <h3>📎 Documents & Attachments</h3>
+                            </div>
+                            <div class="documents-grid" id="cd-documents">
+                                <p class="empty-text">No documents attached.</p>
+                            </div>
+                        </div>
+
+                        <!-- Timeline / Audit Trail -->
+                        <div class="content-block">
+                            <div class="block-header">
+                                <h3>📜 Case History & Timeline</h3>
+                            </div>
+                            <div class="timeline-container" id="cd-timeline">
+                                <p class="empty-text">Loading history...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
 
     </main>
 
@@ -274,6 +380,10 @@
                     <div class="form-group">
                         <label>Case / File Number</label>
                         <input type="text" id="task-case-no" placeholder="e.g. CC/2024/001" />
+                    </div>
+                    <div class="form-group">
+                        <label>CNR Number</label>
+                        <input type="text" id="task-cnr" placeholder="e.g. KABC010012342024" />
                     </div>
                 </div>
 

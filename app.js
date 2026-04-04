@@ -160,10 +160,14 @@ let currentPage = 'dashboard';
 function showPage(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById(`page-${page}`).classList.add('active');
+    
+    const pageEl = document.getElementById(`page-${page}`);
+    if (pageEl) pageEl.classList.add('active');
+    
     document.getElementById(`nav-${page}`)?.classList.add('active');
     document.getElementById('page-title').textContent =
-        { dashboard: 'Dashboard', board: 'Work Board', tasks: 'All Tasks', team: 'Team' }[page];
+        { dashboard: 'Dashboard', board: 'Work Board', tasks: 'All Tasks', team: 'Team', 'case-detail': 'Case File' }[page] || 'Legal Management';
+    
     currentPage = page;
     renderPage(page);
     if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
@@ -173,6 +177,7 @@ function renderPage(page) {
     if (page === 'board') renderBoard();
     if (page === 'tasks') renderTasks();
     if (page === 'team') renderTeam();
+    // 'case-detail' is rendered via openCaseDetail directly
 }
 
 // ============================================================
@@ -195,7 +200,7 @@ function renderDashboard() {
     const recent = tasks.slice(0, 6);
     recentList.innerHTML = recent.map(t => {
         const sm = STAGE_META[t.stage] || {};
-        return `<div class="task-list-item" onclick="openDetail('${t.id}')">
+        return `<div class="task-list-item" onclick="openCaseDetail('${t.id}')">
       <div class="tli-info">
         <div class="tli-title">${esc(t.title)}</div>
         <div class="tli-meta">${t.client ? esc(t.client) + ' · ' : ''}${t.caseNo || ''}</div>
@@ -311,7 +316,7 @@ function buildKCard(task) {
       ${task.due ? `<span class="kcard-due ${ds}">${dueTxt(task.due)}</span>` : ''}
     </div>
     <div class="kcard-actions">
-      <button class="kcard-btn" onclick="openDetail('${task.id}')">👁 View</button>
+      <button class="kcard-btn" onclick="openCaseDetail('${task.id}')">👁 View</button>
       <button class="kcard-btn associate-plus" onclick="openTaskModal('${task.id}')">✏️ Edit</button>
       <button class="kcard-btn admin-only" onclick="deleteTask('${task.id}')">🗑 Delete</button>
     </div>`;
@@ -360,7 +365,7 @@ function renderTasks() {
         const sm = STAGE_META[t.stage] || {};
         const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
         const ds = dueStatus(t.due);
-        return `<tr onclick="openDetail('${t.id}')">
+        return `<tr onclick="openCaseDetail('${t.id}')">
       <td class="td-title">
         <div>${esc(t.title)}</div>
         ${t.client || t.caseNo ? `<div class="td-sub">${t.client ? esc(t.client) : ''}${t.caseNo ? ' · ' + esc(t.caseNo) : ''}</div>` : ''}
@@ -428,6 +433,7 @@ function openTaskModal(taskId = null) {
         document.getElementById('task-title').value = t.title;
         document.getElementById('task-client').value = t.client || '';
         document.getElementById('task-case-no').value = t.caseNo || '';
+        document.getElementById('task-cnr').value = t.cnr || '';
         document.getElementById('task-stage').value = t.stage;
         document.getElementById('task-priority').value = t.priority;
         document.getElementById('task-due').value = t.due || '';
@@ -493,6 +499,7 @@ document.getElementById('task-form').addEventListener('submit', async e => {
             title,
             client: document.getElementById('task-client').value.trim(),
             caseNo: document.getElementById('task-case-no').value.trim(),
+            cnr: document.getElementById('task-cnr').value.trim(),
             assigneeId: document.getElementById('task-assignee').value,
             stage: document.getElementById('task-stage').value,
             priority: document.getElementById('task-priority').value,
@@ -589,75 +596,105 @@ document.getElementById('member-form').addEventListener('submit', async e => {
 });
 
 // ============================================================
-// DETAIL MODAL
+// CASE DETAIL PAGE (Digital Case File)
 // ============================================================
-async function openDetail(taskId) {
-    const t = DB.tasks.find(t => t.id === taskId);
-    if (!t) return;
+async function openCaseDetail(taskId) {
+    const t = DB.tasks.find(task => task.id === taskId);
+    if (!t) return showToast('Case not found', 'error');
 
-    document.getElementById('detail-body').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Loading history...</div>';
-    openModal('detail-modal-overlay');
-
-    const logs = await API.getLogs(taskId).catch(() => []);
-    const logsHtml = logs.length === 0 ? '<p style="font-size:13px;color:var(--text-muted);margin-top:8px">No history yet.</p>' :
-        '<div class="audit-trail">' + logs.map(l => `
-        <div class="audit-item">
-          <div class="audit-dot" style="background: ${l.action_type === 'stage' ? '#f59e0b' : l.action_type === 'reassign' ? '#3b82f6' : l.action_type === 'created' ? '#10b981' : '#6366f1'}"></div>
-          <div class="audit-time">${new Date(l.created_at).toLocaleString()}</div>
-          <div><span class="audit-user">${esc(l.user_name)}</span> ${esc(l.description)}</div>
-        </div>
-      `).join('') + '</div>';
-
-    const member = getMember(t.assigneeId);
-    const sm = STAGE_META[t.stage] || {};
-    const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
-    const ds = dueStatus(t.due);
-
-    document.getElementById('detail-title').textContent = t.title;
-    document.getElementById('detail-body').innerHTML = `
-    <div class="detail-grid">
-      <div class="detail-field"><label>Client</label><p>${esc(t.client || '—')}</p></div>
-      <div class="detail-field"><label>Case No.</label><p>${esc(t.caseNo || '—')}</p></div>
-      <div class="detail-field"><label>Assigned To</label>
-        <div class="assignee-chip" style="margin-top:4px">
-          <div class="chip-av">${initials(member.name)}</div>${esc(member.name)}
-        </div>
-      </div>
-      <div class="detail-field"><label>Priority</label><p><span class="priority-pill ${pm.cls}">${pm.label}</span></p></div>
-      <div class="detail-field"><label>Stage</label><p><span class="stage-badge ${sm.cls}">${t.stage}</span></p></div>
-      <div class="detail-field"><label>Due Date</label><p class="due-text ${ds}">${dueTxt(t.due)}</p></div>
-    </div>
-    <div class="detail-field" style="margin-bottom:16px"><label>Notes</label>
-      <div class="detail-notes">${esc(t.notes || 'No notes.')}</div>
-    </div>
-    ${t.attachments && t.attachments.length > 0 ? `
-    <div class="detail-field" style="margin-bottom:16px"><label>Attachments</label>
-      <div class="attachments-list">
-        ${t.attachments.map(a => `<a class="attachment-item" href="${a.url}" target="_blank">📄 ${esc(a.name)}</a>`).join('')}
-      </div>
-    </div>` : ''}
-    <div class="detail-field associate-plus"><label>Change Stage</label>
-      <div class="detail-actions">
-        ${STAGES.map(s => {
-        const active = s === t.stage;
-        const color = STAGE_META[s].dot;
-        return `<button class="detail-stage-btn"
-            style="color:${color};border-color:${color};${active ? 'opacity:.35;cursor:default;' : ''}"
-            ${active ? '' : `onclick="changeStage('${t.id}','${s}')"`}>${s}</button>`;
-    }).join('')}
-      </div>
-    </div>
+    // Update Hash for Deep Linking
+    window.location.hash = `case/${taskId}`;
     
-    <hr style="border:0; border-top:1px solid var(--border); margin:20px 0" />
-    <div class="detail-field">
-      <label>📜 Audit Trail & History</label>
-      ${logsHtml}
-    </div>
+    showPage('case-detail');
+    
+    // Populate Basic Info
+    document.getElementById('cd-title').textContent = t.title;
+    document.getElementById('cd-client').textContent = t.client || '—';
+    document.getElementById('cd-case-no').textContent = t.caseNo || '—';
+    document.getElementById('cd-cnr').textContent = t.cnr || '—'; // Support for CNR if present
 
-    <div class="modal-actions" style="margin-top:16px">
-      <button class="btn-secondary" onclick="closeModal('detail-modal-overlay')">Close</button>
-      <button class="btn-primary associate-plus" onclick="closeModal('detail-modal-overlay');openTaskModal('${t.id}')">✏️ Edit Task</button>
-    </div>`;
+    // Side details
+    const member = getMember(t.assigneeId);
+    const sm = STAGE_META[t.stage] || STAGE_META['Drafting'];
+    const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
+    
+    const badge = document.getElementById('cd-stage-badge');
+    badge.textContent = t.stage;
+    badge.style.backgroundColor = sm.dot + '20'; // 20% opacity
+    badge.style.color = sm.dot;
+    badge.style.border = `1px solid ${sm.dot}`;
+
+    const progressIdx = STAGES.indexOf(t.stage);
+    const progressPct = ((progressIdx + 1) / STAGES.length) * 100;
+    document.querySelector('#cd-progress-bar .progress-fill').style.width = `${progressPct}%`;
+    document.querySelector('#cd-progress-bar .progress-fill').style.backgroundColor = sm.dot;
+
+    document.getElementById('cd-assignee-av').textContent = initials(member.name);
+    document.getElementById('cd-assignee-name').textContent = member.name;
+    document.getElementById('cd-assignee-role').textContent = member.role || 'Team Member';
+    
+    document.getElementById('cd-due-date').textContent = dueTxt(t.due);
+    document.getElementById('cd-created-at').textContent = new Date(t.createdAt).toLocaleDateString();
+    
+    const pDot = document.querySelector('#cd-priority .priority-dot');
+    const pText = document.querySelector('#cd-priority .priority-text');
+    pDot.style.backgroundColor = pm.color;
+    pText.textContent = t.priority.charAt(0).toUpperCase() + t.priority.slice(1);
+    pText.style.color = pm.color;
+
+    // Notes
+    document.getElementById('cd-notes').textContent = t.notes || 'No briefing or notes provided for this case.';
+
+    // Documents
+    const docGrid = document.getElementById('cd-documents');
+    if (t.attachments && t.attachments.length > 0) {
+        docGrid.innerHTML = t.attachments.map(a => `
+            <a href="${a.url}" target="_blank" class="doc-card">
+                <span class="doc-icon">📄</span>
+                <span class="doc-name" title="${esc(a.name)}">${esc(a.name)}</span>
+            </a>
+        `).join('');
+    } else {
+        docGrid.innerHTML = '<p class="empty-text">No documents attached.</p>';
+    }
+
+    // Timeline / History
+    const timeline = document.getElementById('cd-timeline');
+    timeline.innerHTML = '<p class="empty-text">Loading history...</p>';
+    
+    try {
+        const logs = await API.getLogs(taskId);
+        if (logs.length === 0) {
+            timeline.innerHTML = '<p class="empty-text">No history recorded yet.</p>';
+        } else {
+            timeline.innerHTML = logs.map(l => {
+                let dotColor = '#6366f1';
+                if (l.action_type === 'stage') dotColor = '#f59e0b';
+                if (l.action_type === 'reassign') dotColor = '#3b82f6';
+                if (l.action_type === 'created') dotColor = '#10b981';
+                
+                return `
+                <div class="timeline-item">
+                    <div class="timeline-dot" style="background:${dotColor}"></div>
+                    <div class="timeline-time">${new Date(l.created_at).toLocaleString()}</div>
+                    <div class="timeline-content">
+                        <span class="timeline-user">${esc(l.user_name)}</span> ${esc(l.description)}
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+    } catch (e) {
+        timeline.innerHTML = '<p class="empty-text" style="color:#ef4444">Failed to load history.</p>';
+    }
+
+    // Edit Button
+    document.getElementById('cd-edit-btn').onclick = () => openTaskModal(taskId);
+}
+
+// Keep the old openDetail for backward compatibility or small dialogs if needed
+async function openDetail(taskId) {
+    openCaseDetail(taskId);
 }
 
 async function changeStage(taskId, newStage) {
@@ -752,6 +789,21 @@ document.getElementById('sidebar-toggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open')
 );
 
+document.getElementById('case-back-btn').addEventListener('click', () => {
+    window.location.hash = ''; // Clear hash
+    showPage('dashboard');
+});
+
+// Hash routing for deep links
+function handleHash() {
+    const h = window.location.hash;
+    if (h.startsWith('#case/')) {
+        const id = h.split('/')[1];
+        if (id) openCaseDetail(id);
+    }
+}
+window.addEventListener('hashchange', handleHash);
+
 document.getElementById('board-filter-assignee').addEventListener('change', renderBoard);
 document.getElementById('board-filter-priority').addEventListener('change', renderBoard);
 document.getElementById('tasks-filter-stage').addEventListener('change', renderTasks);
@@ -792,7 +844,15 @@ async function initApp() {
     try {
         await fetchAll();
         refreshAssigneeSelects();
-        showPage('dashboard');
+        
+        // Handle deep links on init
+        const h = window.location.hash;
+        if (h.startsWith('#case/')) {
+            handleHash();
+        } else {
+            showPage('dashboard');
+        }
+        
         startAutoRefresh();
     } catch (err) {
         showToast('Could not connect to database. Check your setup.', 'error');
