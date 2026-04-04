@@ -85,7 +85,7 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
         const { 
             title, description, stage, priority, due, 
-            assignee_id, author_id, case_id, attachments, _userName
+            assignee_id, case_id, attachments, _userName
         } = req.body;
         
         const { data, error } = await supabase.from('tasks').insert([{
@@ -95,7 +95,6 @@ module.exports = async (req, res) => {
             priority: priority || 'medium',
             due: due || null,
             assignee_id: assignee_id || null,
-            author_id: author_id || null,
             case_id: case_id || null,
             attachments: attachments || []
         }]).select().single();
@@ -118,7 +117,7 @@ module.exports = async (req, res) => {
 
         const { 
             title, description, stage, priority, due, 
-            assignee_id, author_id, case_id, attachments
+            assignee_id, case_id, attachments
         } = req.body;
 
         const { data: oldTask } = await supabase.from('tasks').select('*').eq('id', id).single();
@@ -130,7 +129,6 @@ module.exports = async (req, res) => {
         if (priority !== undefined) updates.priority = priority;
         if (due !== undefined) updates.due = due;
         if (assignee_id !== undefined) updates.assignee_id = assignee_id;
-        if (author_id !== undefined) updates.author_id = author_id;
         if (case_id !== undefined) updates.case_id = case_id || null;
         if (attachments !== undefined) updates.attachments = attachments;
 
