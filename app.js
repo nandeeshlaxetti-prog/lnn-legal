@@ -709,15 +709,35 @@ async function openCaseFile(caseId) {
     document.getElementById('cd-assignee-av').textContent = initials(p ? p.name : '??');
     
     // Detailed Info
+    document.getElementById('cd-next-hearing').textContent = c.next_hearing ? new Date(c.next_hearing).toLocaleDateString() : 'Not Announced / Pending';
+    if (c.purpose) document.getElementById('cd-next-hearing').textContent += ` (${c.purpose})`;
+
     document.getElementById('cd-notes').innerHTML = `
+        <div style="margin-bottom:16px; display:grid; grid-template-columns: 1fr 1fr; gap:16px; background:#f3f4f6; padding:16px; border-radius:8px">
+            <div>
+                <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase">Legal Stage</label>
+                <div style="font-weight:600">${esc(c.stage || '—')}</div>
+            </div>
+            <div>
+                <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase">Relevant Law</label>
+                <div style="font-weight:600">${esc(c.law || '—')}</div>
+            </div>
+            <div>
+                <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase">Opponent Counsel</label>
+                <div style="font-weight:600">${esc(c.opposite_counsel || '—')}</div>
+            </div>
+            <div>
+                <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase">Appearing For</label>
+                <div style="font-weight:600">${esc(c.appearing_for || '—')}</div>
+            </div>
+        </div>
+
         <div style="margin-bottom:12px; font-size:1.1rem">
             <strong>Court:</strong> ${esc(c.court_name || '—')} | <strong>Hall:</strong> ${esc(c.court_hall || '—')}
         </div>
-        <div style="margin-bottom:16px">
-            <strong>Appearing For:</strong> <span class="priority-pill" style="background:#e0e7ff;color:#4338ca">${esc(c.appearing_for || 'Petitioner')}</span>
-        </div>
-        <div style="background:#f9fafb; padding:16px; border-radius:8px; border-left:4px solid var(--primary)">
-            ${esc(c.notes || 'No briefing or summary added yet.')}
+        <div style="background:#fff; padding:16px; border-radius:8px; border:1px solid #e5e7eb; min-height:100px">
+            <label style="display:block; font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; margin-bottom:8px">Case Summary</label>
+            ${esc(c.notes || 'No briefing added.')}
         </div>
     `;
 
@@ -759,6 +779,23 @@ async function openCaseFile(caseId) {
         input.click();
     };
 
+    // Hearing History Log
+    const historyDiv = document.getElementById('cd-hearing-history');
+    if (c.hearing_history && c.hearing_history.length > 0) {
+        historyDiv.innerHTML = c.hearing_history.map(h => `
+            <div class="timeline-item" style="border-left: 2px solid var(--primary); padding-left: 16px; margin-bottom: 20px; position: relative">
+                <div style="width:12px; height:12px; border-radius:50%; background:var(--primary); position:absolute; left:-7px; top:4px"></div>
+                <div style="font-size:0.85rem; font-weight:700; color:var(--primary-dark)">${new Date(h.date).toLocaleDateString()}</div>
+                <div style="font-size:0.9rem; font-weight:600; margin-top:4px">${esc(h.purpose || 'Hearing')}</div>
+                <div style="font-size:0.9rem; margin-top:4px; color:var(--text-secondary); background:#f9fafb; padding:8px; border-radius:4px">
+                    ${esc(h.result || 'No summary recorded.')}
+                </div>
+            </div>
+        `).join('');
+    } else {
+        historyDiv.innerHTML = '<div class="empty-docs">No past hearing history recorded.</div>';
+    }
+
     document.getElementById('cd-edit-btn').onclick = () => openCaseModal(c.id);
 }
 
@@ -785,6 +822,13 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-respondent-type').value = c.respondent_type || 'Respondent';
         document.getElementById('case-respondent').value = c.respondent || '';
         
+        document.getElementById('case-stage').value = c.stage || '';
+        document.getElementById('case-next-hearing').value = c.next_hearing || '';
+        document.getElementById('case-purpose').value = c.purpose || '';
+        document.getElementById('case-law').value = c.law || '';
+        document.getElementById('case-opposite-counsel').value = c.opposite_counsel || '';
+        document.getElementById('case-last-result').value = ''; // Always clear for new input
+
         // Sync appearing for BEFORE setting its value
         updateAppearingForOptions();
         document.getElementById('case-appearing-for').value = c.appearing_for || document.getElementById('case-petitioner-type').value;
@@ -795,6 +839,11 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-modal-title').textContent = 'New Case File';
         document.getElementById('case-id').value = '';
         document.getElementById('case-year').value = new Date().getFullYear();
+        document.getElementById('case-stage').value = 'Admission / Fresh Filing';
+        document.getElementById('case-next-hearing').value = '';
+        document.getElementById('case-purpose').value = '';
+        document.getElementById('case-law').value = '';
+        document.getElementById('case-opposite-counsel').value = '';
         updateAppearingForOptions();
     }
     openModal('case-modal-overlay');
@@ -839,8 +888,28 @@ document.getElementById('case-form').addEventListener('submit', async e => {
         respondent: document.getElementById('case-respondent').value.trim(),
         appearing_for: document.getElementById('case-appearing-for').value,
         partner_id: document.getElementById('case-partner').value,
-        notes: document.getElementById('case-notes').value.trim()
+        notes: document.getElementById('case-notes').value.trim(),
+        stage: document.getElementById('case-stage').value,
+        next_hearing: document.getElementById('case-next-hearing').value || null,
+        purpose: document.getElementById('case-purpose').value.trim(),
+        law: document.getElementById('case-law').value.trim(),
+        opposite_counsel: document.getElementById('case-opposite-counsel').value.trim()
     };
+
+    // HISTORY LOGIC: If a result is provided, archive the "current" hearing info before updating to "next"
+    const lastResult = document.getElementById('case-last-result').value.trim();
+    if (id && lastResult) {
+        const oldCase = DB.cases.find(x => x.id === id);
+        if (oldCase) {
+            const historyEntry = {
+                date: oldCase.next_hearing || new Date().toISOString().split('T')[0],
+                purpose: oldCase.purpose || 'Scheduled Hearing',
+                result: lastResult
+            };
+            data.hearing_history = [historyEntry, ...(oldCase.hearing_history || [])];
+        }
+    }
+
     try {
         if (id) {
             const res = await API.updateCase(id, data);

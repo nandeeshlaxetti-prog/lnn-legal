@@ -342,9 +342,20 @@
                             </div>
                         </div>
 
+                        <!-- Hearing History Log -->
+                        <div class="detail-card full">
+                            <h3 style="color:var(--primary-dark); margin-bottom:16px">📅 Professional Case Hearing History (Log)</h3>
+                            <div class="timeline" id="cd-hearing-history">
+                                <!-- Populated dynamically -->
+                                <div class="empty-docs" style="text-align:center; padding:20px; color:var(--text-secondary)">
+                                    No hearing history recorded for this matter yet.
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Briefing / Notes Section -->
                         <div class="detail-card full">
-                            <h3 style="color:var(--primary-dark)">📖 Case BriefING & Summary</h3>
+                            <h3 style="color:var(--primary-dark); margin-bottom:16px">📖 Case BriefING & Summary</h3>
                             <div class="notes-content" id="cd-notes">Loading notes...</div>
                         </div>
                     </div>
@@ -596,9 +607,54 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
+                        <label>Legal Stage <span class="required">*</span></label>
+                        <select id="case-stage" required>
+                            <option value="">Select Stage</option>
+                            <option value="Admission / Fresh Filing">Admission / Fresh Filing</option>
+                            <option value="Service of Summons / Steps">Service of Summons / Steps</option>
+                            <option value="Plaint / Written Statement">Plaint / Written Statement</option>
+                            <option value="Framing of Issues / Charge">Framing of Issues / Charge</option>
+                            <option value="Interlocutory Application (IA)">Interlocutory Application (IA)</option>
+                            <option value="Evidence (Examination)">Evidence (Examination)</option>
+                            <option value="Final Arguments">Final Arguments</option>
+                            <option value="Order / Judgment">Order / Judgment</option>
+                            <option value="Execution Proceedings">Execution Proceedings</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Next Hearing Date</label>
+                        <input type="date" id="case-next-hearing" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Purpose of Next Hearing</label>
+                        <input type="text" id="case-purpose" placeholder="e.g. For Orders, For Evidence" />
+                    </div>
+                    <div class="form-group">
+                        <label>Relevant Law (Act & Section)</label>
+                        <input type="text" id="case-law" placeholder="e.g. Sec. 138 NI Act" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Opposing Counsel</label>
+                        <input type="text" id="case-opposite-counsel" placeholder="Advocate Name" />
+                    </div>
+                </div>
+
+                <div class="form-group full">
+                    <label>Last Hearing Summary / Result (Optional)</label>
+                    <textarea id="case-last-result" rows="2" placeholder="What happened in the last session?"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
                         <label>Appearing For</label>
                         <select id="case-appearing-for">
-                            <!-- Populated dynamically based on party types -->
+                            <!-- Populated dynamically -->
                         </select>
                     </div>
                     <div class="form-group">

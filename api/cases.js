@@ -22,7 +22,14 @@ module.exports = async (req, res) => {
 
     // POST — create case
     if (req.method === 'POST') {
-        const { case_type, case_no, case_year, court_name, court_hall, petitioner_type, petitioner, respondent_type, respondent, appearing_for, partner_id, notes, attachments } = req.body;
+        const { 
+            case_type, case_no, case_year, court_name, court_hall, 
+            petitioner_type, petitioner, respondent_type, respondent, 
+            appearing_for, partner_id, notes, attachments,
+            stage, next_hearing, purpose, opposite_counsel, law,
+            hearing_history
+        } = req.body;
+        
         const { data, error } = await supabase.from('cases').insert([{
             case_type: case_type || null,
             case_no: case_no || null,
@@ -36,7 +43,13 @@ module.exports = async (req, res) => {
             appearing_for: appearing_for || 'Petitioner',
             partner_id: partner_id || null,
             notes: notes || null,
-            attachments: attachments || []
+            attachments: attachments || [],
+            stage: stage || 'Admission / Fresh Filing',
+            next_hearing: next_hearing || null,
+            purpose: purpose || null,
+            opposite_counsel: opposite_counsel || null,
+            law: law || null,
+            hearing_history: hearing_history || []
         }]).select().single();
         if (error) return res.status(500).json({ error: error.message });
         return res.status(201).json(data);
@@ -45,7 +58,14 @@ module.exports = async (req, res) => {
     // PUT — update case
     if (req.method === 'PUT') {
         const { id } = req.query;
-        const { case_type, case_no, case_year, court_name, court_hall, petitioner_type, petitioner, respondent_type, respondent, appearing_for, partner_id, notes, attachments } = req.body;
+        const { 
+            case_type, case_no, case_year, court_name, court_hall, 
+            petitioner_type, petitioner, respondent_type, respondent, 
+            appearing_for, partner_id, notes, attachments,
+            stage, next_hearing, purpose, opposite_counsel, law,
+            hearing_history
+        } = req.body;
+        
         const updates = {};
         if (case_type !== undefined) updates.case_type = case_type || null;
         if (case_no !== undefined) updates.case_no = case_no || null;
@@ -60,6 +80,13 @@ module.exports = async (req, res) => {
         if (partner_id !== undefined) updates.partner_id = partner_id || null;
         if (notes !== undefined) updates.notes = notes || null;
         if (attachments !== undefined) updates.attachments = attachments;
+        
+        if (stage !== undefined) updates.stage = stage;
+        if (next_hearing !== undefined) updates.next_hearing = next_hearing || null;
+        if (purpose !== undefined) updates.purpose = purpose || null;
+        if (opposite_counsel !== undefined) updates.opposite_counsel = opposite_counsel || null;
+        if (law !== undefined) updates.law = law || null;
+        if (hearing_history !== undefined) updates.hearing_history = hearing_history;
 
         const { data, error } = await supabase.from('cases').update(updates).eq('id', id).select().single();
         if (error) return res.status(500).json({ error: error.message });
