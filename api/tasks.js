@@ -133,7 +133,7 @@ module.exports = async (req, res) => {
         if (description !== undefined) updates.notes = description; // Map back to notes
         if (stage !== undefined) updates.stage = stage;
         if (priority !== undefined) updates.priority = priority;
-        if (due !== undefined) updates.due = due;
+        if (due !== undefined) updates.due = due || null; // Fix: convert "" to null
         if (assignee_id !== undefined) updates.assignee_id = assignee_id;
         if (case_id !== undefined) updates.case_id = case_id || null;
         if (attachments !== undefined) updates.attachments = attachments;
