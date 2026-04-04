@@ -680,8 +680,11 @@
                     </div>
                 </div>
                 <div class="form-group full">
-                    <label>Brief & Summary</label>
-                    <textarea id="case-notes" rows="3" placeholder="Brief facts of the case..."></textarea>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+                        <label style="margin-bottom:0">📖 Case Brief & Summary</label>
+                        <button type="button" class="btn-primary" id="case-ai-brief-btn" style="padding:4px 8px; font-size:11px; background:linear-gradient(135deg, #8b5cf6, #d946ef)">✨ Auto-Draft with AI</button>
+                    </div>
+                    <textarea id="case-notes" rows="6" placeholder="Provide full case details here..."></textarea>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" id="case-cancel-btn">Cancel</button>

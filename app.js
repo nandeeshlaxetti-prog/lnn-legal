@@ -1033,25 +1033,28 @@ document.getElementById('tasks-filter-assignee').addEventListener('change', rend
 document.getElementById('tasks-filter-priority').addEventListener('change', renderTasks);
 
 // AI BRIEFING GENERATOR
-document.getElementById('case-ai-brief-btn').onclick = () => {
-    const type = document.getElementById('case-type').value || '[Case Type]';
-    const no = document.getElementById('case-no').value || '[No.]';
-    const year = document.getElementById('case-year').value || '[Year]';
-    const court = document.getElementById('case-court').value || '[Court Name]';
-    const hall = document.getElementById('case-court-hall').value || '[Court Hall]';
-    const pet = document.getElementById('case-petitioner').value || '[Petitioner]';
-    const res = document.getElementById('case-respondent').value || '[Respondent]';
-    const forSide = document.getElementById('case-appearing-for').value || '[Party]';
+const aiBriefBtn = document.getElementById('case-ai-brief-btn');
+if (aiBriefBtn) {
+    aiBriefBtn.onclick = () => {
+        const type = document.getElementById('case-type').value || '[Case Type]';
+        const no = document.getElementById('case-no').value || '[No.]';
+        const year = document.getElementById('case-year').value || '[Year]';
+        const court = document.getElementById('case-court').value || '[Court Name]';
+        const hall = document.getElementById('case-court-hall').value || '[Court Hall]';
+        const pet = document.getElementById('case-petitioner').value || '[Petitioner]';
+        const res = document.getElementById('case-respondent').value || '[Respondent]';
+        const forSide = document.getElementById('case-appearing-for').value || '[Party]';
 
-    const narrative = `This is a ${type} matter filed before the ${court} (${hall}). The case is officially registered as ${type} No. ${no}/${year}. 
+        const narrative = `This is a ${type} matter filed before the ${court} (${hall}). The case is officially registered as ${type} No. ${no}/${year}. 
 
 The firm is appearing for the ${forSide} (${forSide === 'Petitioner' ? pet : res}). 
 
 The primary objective of the litigation is to represent the ${forSide}'s interest effectively before the Bench. Legal associates are directed to ensure all necessary research and documentation are prioritized for the upcoming court sessions.`;
 
-    document.getElementById('case-notes').value = narrative;
-    showToast('AI Briefing Drafted ✨');
-};
+        document.getElementById('case-notes').value = narrative;
+        showToast('AI Briefing Drafted ✨');
+    };
+}
 
 // ============================================================
 // LOGIN & INIT
