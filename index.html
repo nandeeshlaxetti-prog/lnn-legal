@@ -110,9 +110,13 @@
                 <span class="nav-icon">📋</span>
                 <span class="nav-label">Work Board</span>
             </a>
+            <a href="#" class="nav-item" data-page="diary" id="nav-diary">
+                <span class="nav-icon">⚖️</span>
+                <span class="nav-label">Advocate's Diary</span>
+            </a>
             <a href="#" class="nav-item" data-page="cases" id="nav-cases">
                 <span class="nav-icon">📁</span>
-                <span class="nav-label">Cases</span>
+                <span class="nav-label">Digital Files</span>
             </a>
             <a href="#" class="nav-item" data-page="tasks" id="nav-tasks">
                 <span class="nav-icon">✅</span>
@@ -238,6 +242,23 @@
                 </div>
             </div>
             <div class="kanban-board" id="kanban-board"></div>
+        </section>
+
+        <!-- DIARY / CAUSE LIST PAGE -->
+        <section class="page" id="page-diary">
+            <div class="diary-header">
+                <div style="display:flex; align-items:center; gap:16px">
+                    <input type="date" id="diary-date-picker" class="input-modern" style="width:200px" />
+                    <button class="btn-primary" id="diary-today-btn">Show Today</button>
+                </div>
+                <div class="diary-summary">
+                    <span id="diary-count">0 Hearings</span> Today
+                </div>
+            </div>
+            
+            <div id="diary-container" class="diary-container">
+                <!-- Grouped hearings go here -->
+            </div>
         </section>
 
         <!-- CASES PAGE -->
@@ -414,19 +435,34 @@
                                 <div class="empty-docs" style="text-align:center; padding:20px; color:var(--text-secondary)">
                                     No hearing history recorded for this matter yet.
                                 </div>
+                        <!-- Briefing / Notes -->
+                        <div class="content-block">
+                            <div class="block-header">
+                                <h3>📖 Case Briefing & Summary</h3>
+                            </div>
+                            <div id="cd-notes" class="briefing-content"></div>
+                        </div>
+
+                        <!-- Office Works & Tasks (Kanban Linked) -->
+                        <div class="content-block">
+                            <div class="block-header">
+                                <h3>⚙️ Ongoing Office Works</h3>
+                                <button class="btn-primary" id="cd-create-task-btn" style="padding:4px 8px; font-size:11px">+ Link New Task</button>
+                            </div>
+                            <div id="cd-linked-tasks" class="linked-tasks-list">
+                                <!-- Tasks linked to this case -->
                             </div>
                         </div>
 
-                        <!-- Briefing / Notes Section -->
-                        <div class="detail-card full">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
-                                <h3 style="color:var(--primary-dark)">📖 Case Briefing & Professional Summary</h3>
+                        <!-- Hearing Log -->
+                        <div class="content-block">
+                            <div class="block-header">
+                                <h3>📅 Professional Hearing History (Log)</h3>
                             </div>
-                            <div class="notes-content" id="cd-notes" style="background:#f9fafb; padding:16px; border-radius:8px; line-height:1.6; border-left:4px solid var(--primary)">
-                                <!-- Populated dynamically -->
+                            <div class="hearing-log" id="cd-hearing-log">
+                                No past hearing history recorded.
                             </div>
                         </div>
-                    </div>
                     </div>
                 </div>
             </div>

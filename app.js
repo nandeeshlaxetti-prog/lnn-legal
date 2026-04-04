@@ -183,6 +183,7 @@ function showPage(page) {
 function renderPage(page) {
     if (page === 'dashboard') renderDashboard();
     if (page === 'board') renderBoard();
+    if (page === 'diary') renderDiary();
     if (page === 'cases') renderCases();
     if (page === 'tasks') renderTasks();
     if (page === 'team') renderTeam();
@@ -492,11 +493,21 @@ function openTaskModal(taskId = null) {
         document.getElementById('task-priority').value = t.priority;
         document.getElementById('task-due').value = t.due || '';
         document.getElementById('task-notes').value = t.notes || '';
-        populateAssigneeSelect('task-assignee', t.assigneeId || '');
+        document.getElementById('task-assignee').value = t.assignee_id || '';
+        document.getElementById('task-case-id').value = t.case_id || '';
     } else {
         document.getElementById('task-modal-title').textContent = 'New Office Task';
         document.getElementById('task-id').value = '';
+        document.getElementById('task-title').value = '';
+        document.getElementById('task-stage').value = 'Reading/Brief';
+        document.getElementById('task-assignee').value = '';
+        document.getElementById('task-case-id').value = '';
     }
+
+    const caseSel = document.getElementById('task-case-id');
+    caseSel.innerHTML = '<option value="">Select Case (Optional)</option>' + 
+        DB.cases.map(c => `<option value="${c.id}">${esc(c.case_type)} ${c.case_no}/${c.case_year} (${esc(c.petitioner)})</option>`).join('');
+
     openModal('task-modal-overlay');
 }
 
@@ -547,6 +558,7 @@ document.getElementById('task-form').addEventListener('submit', async e => {
             due: document.getElementById('task-due').value,
             notes: document.getElementById('task-notes').value.trim(),
             attachments: finalAttachments,
+            case_id: document.getElementById('task-case-id').value || null,
             _userName: document.getElementById('current-user-name').textContent
         };
 
@@ -718,63 +730,94 @@ async function openCaseFile(caseId) {
         <div>${esc(c.notes || 'No briefing added.')}</div>
     `;
 
-    // Documents
-    const docGrid = document.getElementById('cd-documents');
-    if (c.attachments && c.attachments.length > 0) {
-        docGrid.innerHTML = c.attachments.map(att => `
-            <div class="doc-item">
-                <div class="doc-icon">📄</div>
-                <div class="doc-name">${esc(att.name)}</div>
-                <a href="${att.url}" target="_blank" class="doc-link">View File</a>
+    // Documents & Artifacts (Feature 4 - Managed Folders)
+    const docs = c.attachments || [];
+    const categories = ['Pleadings', 'Applications', 'Evidence', 'Court Orders', 'Client Docs'];
+    const docGrid = document.getElementById('cd-docs');
+    
+    if (docs.length === 0) {
+        docGrid.innerHTML = `
+            <div style="text-align:center; width:100%; padding:20px; color:var(--text-secondary); border:1px dashed var(--border); border-radius:8px">
+                No documents uploaded yet. 
             </div>
-        `).join('');
+        `;
     } else {
-        docGrid.innerHTML = '<div class="empty-docs">No documents attached yet.</div>';
+        docGrid.innerHTML = categories.map(cat => {
+            const catDocs = docs.filter(d => d.category === cat);
+            if (catDocs.length === 0) return '';
+            return `
+                <div style="margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px">
+                    <div style="font-size:11px; font-weight:700; color:var(--primary); text-transform:uppercase; margin-bottom:8px">📂 ${cat}</div>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px">
+                        ${catDocs.map(d => `
+                            <a href="${d.url}" target="_blank" class="doc-card" style="padding:10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:4px; text-decoration:none; display:flex; align-items:center; gap:8px">
+                                <span style="font-size:20px">${d.type?.includes('image') ? '🖼️' : '📄'}</span>
+                                <div style="flex:1; overflow:hidden">
+                                    <div style="font-size:11px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(d.name)}</div>
+                                </div>
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('') || '<div style="color:var(--text-secondary); font-size:13px">No categorized documents.</div>';
     }
 
-    // Document Upload Logic for Case File
+    // Linked Office Works (Feature 2)
+    const linkedTasks = DB.tasks.filter(t => t.case_id === c.id);
+    const taskList = document.getElementById('cd-linked-tasks');
+    if (linkedTasks.length === 0) {
+        taskList.innerHTML = `<div style="padding:20px; text-align:center; border:1px dashed var(--border); border-radius:8px; color:var(--text-secondary); font-size:13px">No office works currently linked. Click link to associate drafting/research tasks.</div>`;
+    } else {
+        taskList.innerHTML = linkedTasks.map(t => {
+            const sm = STAGE_META[t.stage] || { cls: '', dot: '#ccc' };
+            return `
+                <div class="linked-task-pill" onclick="openDetail('${t.id}')" style="cursor:pointer">
+                    <div style="display:flex; align-items:center; gap:10px">
+                        <div style="width:8px; height:8px; border-radius:50%; background:${sm.dot}"></div>
+                        <span style="font-weight:600">${esc(t.title)}</span>
+                    </div>
+                    <span class="task-status-chip" style="background:${sm.dot}15; color:${sm.dot}">${t.stage}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Bind Buttons
+    document.getElementById('cd-edit-btn').onclick = () => openCaseModal(c.id);
+    document.getElementById('cd-set-date-btn').onclick = () => openHearingModal(c.id);
+    document.getElementById('cd-create-task-btn').onclick = () => {
+        openTaskModal();
+        document.getElementById('task-case-id').value = c.id;
+    };
+
+    // Document Upload Logic for Case File (Feature 4)
     document.getElementById('cd-add-doc-btn').onclick = async () => {
+        const cat = prompt("Select Document Category:\n1. Pleadings\n2. Applications\n3. Evidence\n4. Court Orders\n5. Client Docs", "1");
+        const categoryMap = { "1": "Pleadings", "2": "Applications", "3": "Evidence", "4": "Court Orders", "5": "Client Docs" };
+        const selectedCat = categoryMap[cat] || "Pleadings";
+
         const input = document.createElement('input');
         input.type = 'file';
         input.multiple = true;
         input.onchange = async () => {
-            showToast('Uploading case documents...', 'info');
+            showToast(`Uploading to ${selectedCat}...`, 'info');
             try {
                 const newFiles = [];
                 for (const file of input.files) {
                     const auth = await API.getSignUrl({ fileName: file.name });
                     await fetch(auth.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
-                    newFiles.push({ name: file.name, url: auth.publicUrl });
+                    newFiles.push({ name: file.name, url: auth.publicUrl, category: selectedCat, type: file.type });
                 }
                 const updatedAttachments = [...(c.attachments || []), ...newFiles];
                 await API.updateCase(c.id, { attachments: updatedAttachments });
-                showToast('Documents uploaded ✓');
+                showToast('Documents archived ✓');
                 await fetchAll();
                 openCaseFile(c.id);
             } catch (err) { showToast(err.message, 'error'); }
         };
         input.click();
     };
-
-    // Hearing History Log
-    const historyDiv = document.getElementById('cd-hearing-history');
-    if (c.hearing_history && c.hearing_history.length > 0) {
-        historyDiv.innerHTML = c.hearing_history.map(h => `
-            <div class="timeline-item" style="border-left: 2px solid var(--primary); padding-left: 16px; margin-bottom: 20px; position: relative">
-                <div style="width:12px; height:12px; border-radius:50%; background:var(--primary); position:absolute; left:-7px; top:4px"></div>
-                <div style="font-size:0.85rem; font-weight:700; color:var(--primary-dark)">${new Date(h.date).toLocaleDateString()}</div>
-                <div style="font-size:0.9rem; font-weight:600; margin-top:4px">${esc(h.purpose || 'Hearing')}</div>
-                <div style="font-size:0.9rem; margin-top:4px; color:var(--text-secondary); background:#f9fafb; padding:8px; border-radius:4px">
-                    ${esc(h.result || 'No summary recorded.')}
-                </div>
-            </div>
-        `).join('');
-    } else {
-        historyDiv.innerHTML = '<div class="empty-docs">No past hearing history recorded.</div>';
-    }
-
-    document.getElementById('cd-edit-btn').onclick = () => openCaseModal(c.id);
-    document.getElementById('cd-set-date-btn').onclick = () => openHearingModal(c.id);
 }
 
 // ============================================================
@@ -1125,3 +1168,54 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     localStorage.removeItem('lnn_auth_user');
     location.reload();
 });
+
+// ============================================================
+// DIARY / CAUSE LIST (Feature 1)
+// ============================================================
+function renderDiary() {
+    const inputDate = document.getElementById('diary-date-picker').value || today();
+    const container = document.getElementById('diary-container');
+    const hearings = DB.cases.filter(c => c.next_hearing === inputDate);
+    
+    document.getElementById('diary-count').textContent = `${hearings.length} Hearing${hearings.length === 1 ? '' : 's'}`;
+    
+    if (hearings.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:60px; color:var(--text-secondary)">No hearings scheduled for ${inputDate}.</div>`;
+        return;
+    }
+
+    // Group by Court (Hall/Judge)
+    const groups = {};
+    hearings.forEach(h => {
+        const key = h.court_name || 'Court Not Specified';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(h);
+    });
+
+    container.innerHTML = Object.entries(groups).map(([court, list]) => `
+        <div class="diary-group">
+            <div class="diary-group-header">📍 ${esc(court)}</div>
+            ${list.map(c => `
+                <div class="diary-item" onclick="openCaseFile('${c.id}')" style="cursor:pointer">
+                    <div class="diary-info">
+                        <h4>${esc(c.case_type)} No. ${c.case_no}/${c.case_year}</h4>
+                        <p>${esc(c.petitioner)} vs ${esc(c.respondent)}</p>
+                    </div>
+                    <div style="text-align:right">
+                        <div class="legal-chip" style="font-size:11px; margin-bottom:4px">
+                            <span class="chip-label">Purpose:</span>
+                            <span class="chip-value">${esc(c.purpose || 'Hearing')}</span>
+                        </div>
+                        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; font-weight:700">${c.stage}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `).join('');
+}
+
+document.getElementById('diary-date-picker').addEventListener('change', renderDiary);
+document.getElementById('diary-today-btn').onclick = () => {
+    document.getElementById('diary-date-picker').value = today();
+    renderDiary();
+};

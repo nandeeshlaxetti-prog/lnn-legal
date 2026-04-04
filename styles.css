@@ -2134,3 +2134,90 @@ body.role-intern .associate-plus {
     color: var(--text-primary);
     font-weight: 600;
 }
+/* ===========================
+   DIARY & LINKED TASK STYLES
+=========================== */
+.diary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding: 16px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.diary-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.diary-group {
+    background: var(--bg-surface);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.diary-group-header {
+    padding: 12px 16px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 13px;
+    text-transform: uppercase;
+}
+
+.diary-item {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.diary-item:last-child { border-bottom: none; }
+
+.diary-info h4 {
+    margin: 0 0 4px 0;
+    color: var(--primary-dark);
+}
+
+.diary-info p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* Linked Task Chips */
+.linked-tasks-list {
+    display: grid;
+    gap: 10px;
+}
+
+.linked-task-pill {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.linked-task-pill:hover {
+    border-color: var(--accent);
+}
+
+.task-status-chip {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}

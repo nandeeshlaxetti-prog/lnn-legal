@@ -83,14 +83,20 @@ module.exports = async (req, res) => {
 
     // POST — create task
     if (req.method === 'POST') {
-        const { title, assigneeId, stage, priority, due, notes, attachments, _userName } = req.body;
+        const { 
+            title, description, stage, priority, due, 
+            assignee_id, author_id, case_id, attachments, _userName
+        } = req.body;
+        
         const { data, error } = await supabase.from('tasks').insert([{
-            title,
-            assignee_id: assigneeId || null,
-            stage: stage || 'Drafting',
+            title: title || 'New Task',
+            description: description || null,
+            stage: stage || 'Reading/Brief',
             priority: priority || 'medium',
             due: due || null,
-            notes: notes || null,
+            assignee_id: assignee_id || null,
+            author_id: author_id || null,
+            case_id: case_id || null,
             attachments: attachments || []
         }]).select().single();
         if (error) return res.status(500).json({ error: error.message });
@@ -108,17 +114,24 @@ module.exports = async (req, res) => {
     // PUT — update task
     if (req.method === 'PUT') {
         const { id } = req.query;
-        const { title, assigneeId, stage, priority, due, notes, attachments, _userName } = req.body;
+        const { _userName } = req.body;
+
+        const { 
+            title, description, stage, priority, due, 
+            assignee_id, author_id, case_id, attachments
+        } = req.body;
 
         const { data: oldTask } = await supabase.from('tasks').select('*').eq('id', id).single();
-
+        
         const updates = {};
         if (title !== undefined) updates.title = title;
-        if (assigneeId !== undefined) updates.assignee_id = assigneeId || null;
+        if (description !== undefined) updates.description = description;
         if (stage !== undefined) updates.stage = stage;
         if (priority !== undefined) updates.priority = priority;
-        if (due !== undefined) updates.due = due || null;
-        if (notes !== undefined) updates.notes = notes || null;
+        if (due !== undefined) updates.due = due;
+        if (assignee_id !== undefined) updates.assignee_id = assignee_id;
+        if (author_id !== undefined) updates.author_id = author_id;
+        if (case_id !== undefined) updates.case_id = case_id || null;
         if (attachments !== undefined) updates.attachments = attachments;
 
         const { data, error } = await supabase.from('tasks').update(updates).eq('id', id).select().single();
