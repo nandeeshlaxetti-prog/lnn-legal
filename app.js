@@ -791,8 +791,9 @@ function updateAppearingForOptions() {
 
 function populatePartnerSelect() {
     const select = document.getElementById('case-partner');
+    const partners = DB.members.filter(m => m.role === 'Partner');
     select.innerHTML = '<option value="">Select Partner</option>' + 
-        DB.members.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+        partners.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
 }
 
 document.getElementById('case-form').addEventListener('submit', async e => {
