@@ -400,7 +400,8 @@ function renderCases() {
 
     const displayCases = cases.filter(c => 
         (c.title || '').toLowerCase().includes(searchVal) ||
-        (c.client || '').toLowerCase().includes(searchVal) ||
+        (c.petitioner || '').toLowerCase().includes(searchVal) ||
+        (c.respondent || '').toLowerCase().includes(searchVal) ||
         (c.case_no || '').toLowerCase().includes(searchVal) ||
         (c.cnr_no || '').toLowerCase().includes(searchVal)
     );
@@ -415,15 +416,19 @@ function renderCases() {
     empty.style.display = 'none';
 
     tbody.innerHTML = displayCases.map(c => {
+        const partner = DB.members.find(m => m.id === c.partner_id) || { name: '—' };
         return `<tr>
             <td class="td-title">
                 <div>${esc(c.case_no || '—')}</div>
                 <div class="td-sub">${esc(c.title)}</div>
             </td>
             <td><code>${esc(c.cnr_no || '—')}</code></td>
-            <td><strong>${esc(c.client || '—')}</strong></td>
-            <td>—</td>
-            <td>—</td>
+            <td>
+                <div>P: ${esc(c.petitioner || '—')}</div>
+                <div class="td-sub">R: ${esc(c.respondent || '—')}</div>
+            </td>
+            <td>${esc(c.court_name || '—')}</td>
+            <td>${esc(partner.name)}</td>
             <td>
                 <button class="btn-primary" style="padding:4px 12px;font-size:12px" onclick="openCaseFile('${c.id}')">📂 View File</button>
                 <button class="action-btn" onclick="openCaseModal('${c.id}')" title="Edit Properties">✏️</button>
@@ -688,18 +693,26 @@ async function openCaseFile(caseId) {
     
     // Populate Case Info
     document.getElementById('cd-title').textContent = c.title;
-    document.getElementById('cd-client').textContent = c.client || '—';
+    document.getElementById('cd-client').textContent = `${c.petitioner || '—'} vs ${c.respondent || '—'}`;
     document.getElementById('cd-case-no').textContent = c.case_no || '—';
     document.getElementById('cd-cnr').textContent = c.cnr_no || '—';
 
-    // Sidebar
-    document.getElementById('cd-stage-badge').textContent = 'Legal Archive';
-    document.getElementById('cd-assignee-name').textContent = 'Principal Partner';
-    document.getElementById('cd-assignee-role').textContent = 'Case Lead';
+    // Sidebar Extension
+    const p = DB.members.find(m => m.id === c.partner_id);
+    document.getElementById('cd-assignee-name').textContent = p ? p.name : 'Unassigned';
+    document.getElementById('cd-assignee-role').textContent = 'Partner In-Charge';
     document.getElementById('cd-created-at').textContent = new Date(c.created_at).toLocaleDateString();
 
-    // Notes
-    document.getElementById('cd-notes').textContent = c.notes || 'No case facts provided.';
+    // Detailed Info
+    document.getElementById('cd-notes').innerHTML = `
+        <div style="margin-bottom:12px">
+            <strong>Court:</strong> ${esc(c.court_name || '—')} | <strong>Hall:</strong> ${esc(c.court_hall || '—')}
+        </div>
+        <div style="margin-bottom:12px">
+            <strong>Appearing For:</strong> <span class="priority-pill" style="background:#e0e7ff;color:#4338ca">${esc(c.appearing_for || 'Petitioner')}</span>
+        </div>
+        <div>${esc(c.notes || 'No briefing added.')}</div>
+    `;
 
     // Documents
     const docGrid = document.getElementById('cd-documents');
@@ -721,14 +734,20 @@ async function openCaseFile(caseId) {
 function openCaseModal(caseId = null) {
     const form = document.getElementById('case-form');
     form.reset();
+    populatePartnerSelect();
+    
     if (caseId) {
         const c = DB.cases.find(x => x.id === caseId);
         if (!c) return;
         document.getElementById('case-modal-title').textContent = 'Edit Case File';
         document.getElementById('case-id').value = c.id;
         document.getElementById('case-title').value = c.title;
-        document.getElementById('case-client').value = c.client;
         document.getElementById('case-court').value = c.court_name || '';
+        document.getElementById('case-hall').value = c.court_hall || '';
+        document.getElementById('case-petitioner').value = c.petitioner || '';
+        document.getElementById('case-respondent').value = c.respondent || '';
+        document.getElementById('case-appearing-for').value = c.appearing_for || 'Petitioner';
+        document.getElementById('case-partner').value = c.partner_id || '';
         document.getElementById('case-no').value = c.case_no || '';
         document.getElementById('case-cnr').value = c.cnr_no || '';
         document.getElementById('case-notes').value = c.notes || '';
@@ -739,13 +758,23 @@ function openCaseModal(caseId = null) {
     openModal('case-modal-overlay');
 }
 
+function populatePartnerSelect() {
+    const select = document.getElementById('case-partner');
+    select.innerHTML = '<option value="">Select Partner</option>' + 
+        DB.members.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+}
+
 document.getElementById('case-form').addEventListener('submit', async e => {
     e.preventDefault();
     const id = document.getElementById('case-id').value;
     const data = {
         title: document.getElementById('case-title').value.trim(),
-        client: document.getElementById('case-client').value.trim(),
         court_name: document.getElementById('case-court').value.trim(),
+        court_hall: document.getElementById('case-hall').value.trim(),
+        petitioner: document.getElementById('case-petitioner').value.trim(),
+        respondent: document.getElementById('case-respondent').value.trim(),
+        appearing_for: document.getElementById('case-appearing-for').value,
+        partner_id: document.getElementById('case-partner').value,
         case_no: document.getElementById('case-no').value.trim(),
         cnr_no: document.getElementById('case-cnr').value.trim(),
         notes: document.getElementById('case-notes').value.trim()
