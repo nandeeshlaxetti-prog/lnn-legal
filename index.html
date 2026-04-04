@@ -45,6 +45,55 @@
         <p class="loading-msg">Connecting to database…</p>
     </div>
 
+    <!-- MODAL: Update Hearing / Legal Timeline -->
+    <div class="modal-overlay" id="hearing-modal-overlay">
+        <div class="modal" id="hearing-modal" style="max-width:500px">
+            <div class="modal-header">
+                <h2 id="hearing-modal-title">Court Hearing Update</h2>
+                <button class="modal-close" onclick="closeModal('hearing-modal-overlay')">✕</button>
+            </div>
+            <form id="hearing-form" class="modal-body">
+                <input type="hidden" id="hearing-case-id" />
+                
+                <div class="form-group full">
+                    <label>Current Legal Stage <span class="required">*</span></label>
+                    <select id="h-stage" required>
+                        <option value="Admission / Fresh Filing">Admission / Fresh Filing</option>
+                        <option value="Service of Summons / Steps">Service of Summons / Steps</option>
+                        <option value="Plaint / Written Statement">Plaint / Written Statement</option>
+                        <option value="Framing of Issues / Charge">Framing of Issues / Charge</option>
+                        <option value="Interlocutory Application (IA)">Interlocutory Application (IA)</option>
+                        <option value="Evidence (Examination)">Evidence (Examination)</option>
+                        <option value="Final Arguments">Final Arguments</option>
+                        <option value="Order / Judgment">Order / Judgment</option>
+                        <option value="Execution Proceedings">Execution Proceedings</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Next Hearing Date</label>
+                        <input type="date" id="h-next-date" />
+                    </div>
+                    <div class="form-group">
+                        <label>Purpose</label>
+                        <input type="text" id="h-purpose" placeholder="e.g. For Orders" />
+                    </div>
+                </div>
+
+                <div class="form-group full">
+                    <label>What happened today? (Moves to Audit Log)</label>
+                    <textarea id="h-result" rows="3" placeholder="Provide a summary of the orders or adjournment..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('hearing-modal-overlay')">Cancel</button>
+                    <button type="submit" class="btn-primary">Update Timeline</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-logo">
@@ -625,47 +674,13 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Legal Stage <span class="required">*</span></label>
-                        <select id="case-stage" required>
-                            <option value="">Select Stage</option>
-                            <option value="Admission / Fresh Filing">Admission / Fresh Filing</option>
-                            <option value="Service of Summons / Steps">Service of Summons / Steps</option>
-                            <option value="Plaint / Written Statement">Plaint / Written Statement</option>
-                            <option value="Framing of Issues / Charge">Framing of Issues / Charge</option>
-                            <option value="Interlocutory Application (IA)">Interlocutory Application (IA)</option>
-                            <option value="Evidence (Examination)">Evidence (Examination)</option>
-                            <option value="Final Arguments">Final Arguments</option>
-                            <option value="Order / Judgment">Order / Judgment</option>
-                            <option value="Execution Proceedings">Execution Proceedings</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Next Hearing Date</label>
-                        <input type="date" id="case-next-hearing" />
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Purpose of Next Hearing</label>
-                        <input type="text" id="case-purpose" placeholder="e.g. For Orders, For Evidence" />
+                        <label>Opposing Counsel</label>
+                        <input type="text" id="case-opposite-counsel" placeholder="Advocate Name" />
                     </div>
                     <div class="form-group">
                         <label>Relevant Law (Act & Section)</label>
                         <input type="text" id="case-law" placeholder="e.g. Sec. 138 NI Act" />
                     </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Opposing Counsel</label>
-                        <input type="text" id="case-opposite-counsel" placeholder="Advocate Name" />
-                    </div>
-                </div>
-
-                <div class="form-group full">
-                    <label>Last Hearing Summary / Result (Optional)</label>
-                    <textarea id="case-last-result" rows="2" placeholder="What happened in the last session?"></textarea>
                 </div>
 
                 <div class="form-row">

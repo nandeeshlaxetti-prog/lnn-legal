@@ -776,7 +776,7 @@ async function openCaseFile(caseId) {
     }
 
     document.getElementById('cd-edit-btn').onclick = () => openCaseModal(c.id);
-    document.getElementById('cd-set-date-btn').onclick = () => openCaseModal(c.id);
+    document.getElementById('cd-set-date-btn').onclick = () => openHearingModal(c.id);
 }
 
 // ============================================================
@@ -802,12 +802,8 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-respondent-type').value = c.respondent_type || 'Respondent';
         document.getElementById('case-respondent').value = c.respondent || '';
         
-        document.getElementById('case-stage').value = c.stage || '';
-        document.getElementById('case-next-hearing').value = c.next_hearing || '';
-        document.getElementById('case-purpose').value = c.purpose || '';
         document.getElementById('case-law').value = c.law || '';
         document.getElementById('case-opposite-counsel').value = c.opposite_counsel || '';
-        document.getElementById('case-last-result').value = ''; // Always clear for new input
 
         // Sync appearing for BEFORE setting its value
         updateAppearingForOptions();
@@ -819,9 +815,6 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-modal-title').textContent = 'New Case File';
         document.getElementById('case-id').value = '';
         document.getElementById('case-year').value = new Date().getFullYear();
-        document.getElementById('case-stage').value = 'Admission / Fresh Filing';
-        document.getElementById('case-next-hearing').value = '';
-        document.getElementById('case-purpose').value = '';
         document.getElementById('case-law').value = '';
         document.getElementById('case-opposite-counsel').value = '';
         updateAppearingForOptions();
@@ -869,40 +862,73 @@ document.getElementById('case-form').addEventListener('submit', async e => {
         appearing_for: document.getElementById('case-appearing-for').value,
         partner_id: document.getElementById('case-partner').value,
         notes: document.getElementById('case-notes').value.trim(),
-        stage: document.getElementById('case-stage').value,
-        next_hearing: document.getElementById('case-next-hearing').value || null,
-        purpose: document.getElementById('case-purpose').value.trim(),
         law: document.getElementById('case-law').value.trim(),
         opposite_counsel: document.getElementById('case-opposite-counsel').value.trim()
     };
-
-    // HISTORY LOGIC: If a result is provided, archive the "current" hearing info before updating to "next"
-    const lastResult = document.getElementById('case-last-result').value.trim();
-    if (id && lastResult) {
-        const oldCase = DB.cases.find(x => x.id === id);
-        if (oldCase) {
-            const historyEntry = {
-                date: oldCase.next_hearing || new Date().toISOString().split('T')[0],
-                purpose: oldCase.purpose || 'Scheduled Hearing',
-                result: lastResult
-            };
-            data.hearing_history = [historyEntry, ...(oldCase.hearing_history || [])];
-        }
-    }
 
     try {
         if (id) {
             const res = await API.updateCase(id, data);
             const idx = DB.cases.findIndex(x => x.id === id);
             DB.cases[idx] = res;
-            showToast('Case file updated ✓');
+            showToast('Case updated ✓');
         } else {
             const res = await API.createCase(data);
-            DB.cases.unshift(res);
-            showToast('Case file created ✓');
+            DB.cases.push(res);
+            showToast('New Case Registered ✓');
         }
         closeModal('case-modal-overlay');
         renderCases();
+        if (id) openCaseFile(id); 
+    } catch (err) { showToast(err.message, 'error'); }
+});
+
+// HEARING UPDATE LOGIC
+function openHearingModal(caseId) {
+    const c = DB.cases.find(x => x.id === caseId);
+    if (!c) return;
+    document.getElementById('hearing-case-id').value = c.id;
+    document.getElementById('h-stage').value = c.stage || 'Admission / Fresh Filing';
+    document.getElementById('h-next-date').value = c.next_hearing || '';
+    document.getElementById('h-purpose').value = c.purpose || '';
+    document.getElementById('h-result').value = '';
+    openModal('hearing-modal-overlay');
+}
+
+document.getElementById('hearing-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('hearing-case-id').value;
+    const oldCase = DB.cases.find(x => x.id === id);
+    if (!oldCase) return;
+
+    const lastResult = document.getElementById('h-result').value.trim();
+    let history = oldCase.hearing_history || [];
+    
+    // Archive if result provided
+    if (lastResult) {
+        history = [{
+            date: oldCase.next_hearing || new Date().toISOString().split('T')[0],
+            purpose: oldCase.purpose || 'Scheduled Hearing',
+            result: lastResult
+        }, ...history];
+    }
+
+    const data = {
+        stage: document.getElementById('h-stage').value,
+        next_hearing: document.getElementById('h-next-date').value || null,
+        purpose: document.getElementById('h-purpose').value.trim(),
+        hearing_history: history
+    };
+
+    try {
+        showToast('Updating Litigation Timeline...', 'info');
+        const res = await API.updateCase(id, data);
+        const idx = DB.cases.findIndex(x => x.id === id);
+        DB.cases[idx] = res;
+        showToast('Timeline Updated ✓');
+        closeModal('hearing-modal-overlay');
+        renderCases();
+        openCaseFile(id);
     } catch (err) { showToast(err.message, 'error'); }
 });
 
