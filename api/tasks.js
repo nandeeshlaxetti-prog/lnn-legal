@@ -52,13 +52,15 @@ function mapTask(t) {
     return {
         id: t.id, 
         title: t.title,
-        description: t.notes, // Map notes column back to description key for frontend
-        assigneeId: t.assignee_id,
+        description: t.notes,
+        assigneeId: t.assignee_id, // Modern
+        assignee_id: t.assignee_id, // Legacy compatibility
         stage: t.stage, 
         priority: t.priority,
         due: t.due, 
         notes: t.notes, 
-        caseId: t.case_id, // CRITICAL: Include case linkage
+        caseId: t.case_id,
+        case_id: t.case_id,
         createdAt: t.created_at,
         attachments: t.attachments || []
     };

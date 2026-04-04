@@ -38,7 +38,7 @@
     </div>
 
     <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-overlay" id="loading-overlay" style="z-index: 99999;">
         <img src="logo.png" alt="Logo" class="loading-logo-img" onerror="this.style.display='none'" />
         <div class="loading-logo">LNN Legal</div>
         <div class="spinner"></div>
@@ -46,7 +46,7 @@
     </div>
 
     <!-- MODAL: Update Hearing / Legal Timeline -->
-    <div class="modal-overlay" id="hearing-modal-overlay">
+    <div class="modal-overlay" id="hearing-modal-overlay" style="opacity:0; pointer-events:none">
         <div class="modal" id="hearing-modal" style="max-width:500px">
             <div class="modal-header">
                 <h2 id="hearing-modal-title">Court Hearing Update</h2>
@@ -353,10 +353,10 @@
                     <div class="case-title-row">
                         <h2 id="cd-title">Case Title</h2>
                         <div class="case-actions">
-                            <button class="btn-primary associate-plus" id="cd-edit-btn">✏️ Edit Case</button>
+                            <button class="btn-primary" id="cd-edit-btn">✏️ Edit Case</button>
                         </div>
                     </div>
-                        <div class="case-meta-row" style="margin-top:12px; display:block">
+                    <div class="case-meta-row" style="margin-top:12px; display:block">
                         <div class="case-meta-item">
                             <span class="meta-label">Parties:</span>
                             <span class="meta-value" id="cd-client" style="font-weight:600;font-size:1.1rem">—</span>
@@ -400,72 +400,57 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Case Briefing & Summary Sidebar/Block Alternative -->
+                        <div class="detail-card">
+                            <h3 style="color:var(--primary-dark)">📖 Case Briefing</h3>
+                            <div id="cd-notes" class="briefing-content" style="font-size:13px; line-height:1.5">—</div>
+                        </div>
                     </aside>
 
                     <!-- Main Content Sections -->
-                    <div class="case-content-sections">
-                        <!-- Notes Section -->
-                        <div class="content-block">
-                            <div class="block-header">
-                                <h3>📂 Case Notes & Briefing</h3>
-                        <div class="case-actions-grid">
-                        <!-- Documentation Section -->
-                        <div class="detail-card full">
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                                <h3 style="color:var(--primary-dark)">📑 Case Documents & Attachments</h3>
-                                <button class="btn-primary" id="cd-add-doc-btn" style="padding:6px 12px;font-size:13px">+ Upload New Image/PDF</button>
-                            </div>
-                            <div class="document-grid" id="cd-documents">
-                                <!-- Populated dynamically -->
-                            </div>
-                        </div>
-
-                        <!-- Hearing History Log -->
-                        <div class="detail-card full">
-                            <h3 style="color:var(--primary-dark); margin-bottom:16px">📅 Professional Case Hearing History (Log)</h3>
-                            <div class="timeline" id="cd-hearing-history">
-                                <!-- Populated dynamically -->
-                                <div class="empty-docs" style="text-align:center; padding:20px; color:var(--text-secondary)">
-                                    No hearing history recorded for this matter yet.
-                                </div>
-                        <!-- Briefing / Notes -->
-                        <div class="content-block">
-                            <div class="block-header">
-                                <h3>📖 Case Briefing & Summary</h3>
-                            </div>
-                            <div id="cd-notes" class="briefing-content"></div>
-                        </div>
-
+                    <div class="case-content-sections" style="display:flex; flex-direction:column; gap:20px">
                         <!-- Office Works & Tasks (Kanban Linked) -->
-                        <div class="content-block">
-                            <div class="block-header">
-                                <h3>⚙️ Ongoing Office Works</h3>
-                                <button class="btn-primary" id="cd-create-task-btn" style="padding:4px 8px; font-size:11px">+ Link New Task</button>
+                        <div class="content-block" style="background:var(--bg-elevated); border-radius:12px; padding:20px; border:1px solid var(--border)">
+                            <div class="block-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+                                <h3 style="margin:0">⚙️ Ongoing Office Works</h3>
+                                <button class="btn-primary" id="cd-create-task-btn" style="padding:6px 12px; font-size:12px">+ Link New Task</button>
                             </div>
                             <div id="cd-linked-tasks" class="linked-tasks-list">
                                 <!-- Tasks linked to this case -->
                             </div>
                         </div>
 
-                        <!-- Hearing Log -->
-                        <div class="content-block">
-                            <div class="block-header">
-                                <h3>📅 Professional Hearing History (Log)</h3>
+                        <!-- Documentation Section -->
+                        <div class="content-block" style="background:var(--bg-elevated); border-radius:12px; padding:20px; border:1px solid var(--border)">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                <h3 style="margin:0">📑 Case Documents & Attachments</h3>
+                                <button class="btn-primary" id="cd-add-doc-btn" style="padding:6px 12px;font-size:13px">+ Upload Document</button>
                             </div>
-                            <div class="hearing-log" id="cd-hearing-log">
-                                No past hearing history recorded.
+                            <div class="document-grid" id="cd-docs">
+                                <!-- Populated dynamically by app.js:cd-docs -->
+                            </div>
+                        </div>
+
+                        <!-- Hearing History Log -->
+                        <div class="content-block" style="background:var(--bg-elevated); border-radius:12px; padding:20px; border:1px solid var(--border)">
+                            <h3 style="margin:0 0 16px 0">📅 Professional Hearing History (Log)</h3>
+                            <div class="timeline" id="cd-hearing-history">
+                                <!-- Populated dynamically -->
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
+            </div>
+        </section>
 
 
     </main>
 
-    <!-- MODAL: New/Edit Task -->
-    <div class="modal-overlay" id="task-modal-overlay">
+    <!-- MODAL: Task Details/Editing -->
+    <div class="modal-overlay" id="task-modal-overlay" style="opacity:0; pointer-events:none">
         <div class="modal" id="task-modal">
             <div class="modal-header">
                 <h2 id="task-modal-title">New Task</h2>
@@ -545,9 +530,9 @@
         </div>
     </div>
 
-    <!-- MODAL: Add Member -->
-    <div class="modal-overlay" id="member-modal-overlay">
-        <div class="modal" id="member-modal">
+    <!-- MODAL: Add Team Member -->
+    <div class="modal-overlay" id="team-modal-overlay" style="opacity:0; pointer-events:none">
+        <div class="modal" id="team-modal" style="max-width:500px">
             <div class="modal-header">
                 <h2 id="member-modal-title">Add Team Member</h2>
                 <button class="modal-close" id="member-modal-close">✕</button>
@@ -603,8 +588,8 @@
         </div>
     </div>
 
-    <!-- MODAL: New/Edit Legal Case -->
-    <div class="modal-overlay" id="case-modal-overlay">
+    <!-- MODAL: New Legal Case File -->
+    <div class="modal-overlay" id="case-modal-overlay" style="opacity:0; pointer-events:none">
         <div class="modal" id="case-modal">
             <div class="modal-header">
                 <h2 id="case-modal-title">New Legal Case</h2>

@@ -3,6 +3,8 @@
 // ============================================================
 const DB = { tasks: [], members: [], cases: [] };
 
+let currentCaseInView = null; // Track current case for global listeners
+
 // ============================================================
 // API LAYER — calls Vercel serverless functions
 // ============================================================
@@ -67,7 +69,14 @@ const PRIORITY_META = {
 function fmtDate(d) { return d.toISOString().split('T')[0]; }
 function today() { return fmtDate(new Date()); }
 function initials(name) { return (name || '??').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2); }
-function getMember(id) { return DB.members.find(m => m.id === id) || { name: 'Unassigned', id: '' }; }
+// GET ASSIGNEE FROM TASK (Snake and Camel support)
+function getMemberFromTask(t) {
+    const id = t.assigneeId || t.assignee_id || '';
+    return DB.members.find(m => m.id === id) || { name: 'Unassigned', id: '' };
+}
+function getMember(id) { 
+    return DB.members.find(m => m.id === id) || { name: 'Unassigned', id: '' }; 
+}
 function dueStatus(due) {
     if (!due) return 'none';
     const diff = Math.ceil((new Date(due) - new Date(today())) / 86400000);
@@ -95,7 +104,18 @@ function showToast(msg, type = 'success') {
 }
 
 function setLoading(on) {
-    document.getElementById('loading-overlay').classList.toggle('hidden', !on);
+    const el = document.getElementById('loading-overlay');
+    if (!el) return;
+    if (on) {
+        el.classList.remove('hidden');
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'all';
+    } else {
+        el.classList.add('hidden');
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+        setTimeout(() => { if (el.style.opacity === '0') el.style.display = 'none'; }, 400);
+    }
 }
 
 let windowCurrentUserLevel = 'admin';
@@ -350,7 +370,7 @@ function renderBoard() {
 }
 
 function buildKCard(task) {
-    const member = getMember(task.assigneeId);
+    const member = getMemberFromTask(task);
     const ds = dueStatus(task.due);
     const pm = PRIORITY_META[task.priority] || PRIORITY_META.medium;
 
@@ -542,8 +562,13 @@ function openTaskModal(taskId = null, linkedCaseId = null) {
         document.getElementById('task-priority').value = t.priority;
         document.getElementById('task-due').value = t.due || '';
         document.getElementById('task-notes').value = t.notes || '';
-        document.getElementById('task-assignee').value = t.assigneeId || '';
-        document.getElementById('task-case-id').value = t.caseId || '';
+        
+        // Correctly set the select values
+        const currentAssignee = t.assignee_id || t.assigneeId || '';
+        document.getElementById('task-assignee').value = currentAssignee;
+        
+        const currentCase = t.case_id || t.caseId || '';
+        document.getElementById('task-case-id').value = currentCase;
     } else {
         document.getElementById('task-modal-title').textContent = 'New Office Task';
         document.getElementById('task-id').value = '';
@@ -748,6 +773,7 @@ async function openCaseFile(caseId) {
     const c = DB.cases.find(x => x.id === caseId);
     if (!c) return;
     
+    currentCaseInView = c; // Set global state
     showPage('case-detail');
     
     // Populate Case Info
@@ -827,39 +853,68 @@ async function openCaseFile(caseId) {
             `;
         }).join('');
     }
+}
 
-    // Bind Buttons
-    document.getElementById('cd-edit-btn').onclick = () => openCaseModal(c.id);
-    document.getElementById('cd-set-date-btn').onclick = () => openHearingModal(c.id);
-    document.getElementById('cd-create-task-btn').onclick = () => openTaskModal(null, c.id);
+// ============================================================
+// GLOBAL LITIGATION ACTIONS (Bulletproof Delegation)
+// ============================================================
+document.addEventListener('click', async e => {
+    const btn = e.target.closest('button');
+    if (!btn || !btn.id) return;
 
-    // Document Upload Logic for Case File (Feature 4)
-    document.getElementById('cd-add-doc-btn').onclick = async () => {
-        const cat = prompt("Select Document Category:\n1. Pleadings\n2. Applications\n3. Evidence\n4. Court Orders\n5. Client Docs", "1");
-        const categoryMap = { "1": "Pleadings", "2": "Applications", "3": "Evidence", "4": "Court Orders", "5": "Client Docs" };
-        const selectedCat = categoryMap[cat] || "Pleadings";
+    // Detect Litigation Action (cd- prefix)
+    if (btn.id.startsWith('cd-')) {
+        const c = currentCaseInView;
+        if (!c) {
+            console.error('[Litigation] No active case file context found for action.');
+            return;
+        }
 
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.multiple = true;
-        input.onchange = async () => {
-            showToast(`Uploading to ${selectedCat}...`, 'info');
-            try {
-                const newFiles = [];
-                for (const file of input.files) {
-                    const auth = await API.getSignUrl({ fileName: file.name });
-                    await fetch(auth.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
-                    newFiles.push({ name: file.name, url: auth.publicUrl, category: selectedCat, type: file.type });
-                }
-                const updatedAttachments = [...(c.attachments || []), ...newFiles];
-                await API.updateCase(c.id, { attachments: updatedAttachments });
-                showToast('Documents archived ✓');
-                await fetchAll();
-                openCaseFile(c.id);
-            } catch (err) { showToast(err.message, 'error'); }
-        };
-        input.click();
+        switch (btn.id) {
+            case 'cd-edit-btn':
+                openCaseModal(c.id);
+                break;
+            case 'cd-set-date-btn':
+                openHearingModal(c.id);
+                break;
+            case 'cd-create-task-btn':
+                openTaskModal(null, c.id);
+                break;
+            case 'cd-add-doc-btn':
+                handleGlobalDocUpload(c.id);
+                break;
+        }
+    }
+});
+
+async function handleGlobalDocUpload(caseId) {
+    const c = DB.cases.find(x => x.id === caseId);
+    if (!c) return;
+
+    const catChoice = prompt("Select Category:\n1. Pleadings\n2. Applications\n3. Evidence\n4. Court Orders\n5. Client Docs", "1");
+    const categoryMap = { "1": "Pleadings", "2": "Applications", "3": "Evidence", "4": "Court Orders", "5": "Client Docs" };
+    const selectedCat = categoryMap[catChoice] || "Pleadings";
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.onchange = async () => {
+        showToast(`Archiving Documents to ${selectedCat}...`, 'info');
+        try {
+            const newFiles = [];
+            for (const file of fileInput.files) {
+                const authRes = await API.getSignUrl({ fileName: file.name });
+                await fetch(authRes.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+                newFiles.push({ name: file.name, url: authRes.publicUrl, category: selectedCat, type: file.type });
+            }
+            const updatedAttachments = [...(c.attachments || []), ...newFiles];
+            await API.updateCase(c.id, { attachments: updatedAttachments });
+            showToast('Briefcase Updated ✓');
+            await fetchAll();
+            openCaseFile(c.id);
+        } catch (err) { showToast(err.message, 'error'); }
     };
+    fileInput.click();
 }
 
 // ============================================================
@@ -1037,8 +1092,20 @@ async function deleteMember(id) {
 // ============================================================
 // MODAL HELPERS
 // ============================================================
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) { 
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('open'); 
+    el.style.opacity = '1'; 
+    el.style.pointerEvents = 'all'; 
+}
+function closeModal(id) { 
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('open'); 
+    el.style.opacity = '0'; 
+    el.style.pointerEvents = 'none'; 
+}
 
 function populateAssigneeSelect(selectId, selectedId) {
     const sel = document.getElementById(selectId);
@@ -1106,7 +1173,7 @@ function handleHash() {
     const h = window.location.hash;
     if (h.startsWith('#case/')) {
         const id = h.split('/')[1];
-        if (id) openCaseDetail(id);
+        if (id) openCaseFile(id);
     }
 }
 window.addEventListener('hashchange', handleHash);
@@ -1125,7 +1192,7 @@ if (aiBriefBtn) {
         const no = document.getElementById('case-no').value || '[No.]';
         const year = document.getElementById('case-year').value || '[Year]';
         const court = document.getElementById('case-court').value || '[Court Name]';
-        const hall = document.getElementById('case-court-hall').value || '[Court Hall]';
+        const hall = document.getElementById('case-hall') ? document.getElementById('case-hall').value : document.getElementById('case-court-hall')?.value || '[Court Hall]';
         const pet = document.getElementById('case-petitioner').value || '[Petitioner]';
         const res = document.getElementById('case-respondent').value || '[Respondent]';
         const forSide = document.getElementById('case-appearing-for').value || '[Party]';
