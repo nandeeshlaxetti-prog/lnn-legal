@@ -759,7 +759,11 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-petitioner').value = c.petitioner || '';
         document.getElementById('case-respondent-type').value = c.respondent_type || 'Respondent';
         document.getElementById('case-respondent').value = c.respondent || '';
-        document.getElementById('case-appearing-for').value = c.appearing_for || 'Petitioner';
+        
+        // Sync appearing for BEFORE setting its value
+        updateAppearingForOptions();
+        document.getElementById('case-appearing-for').value = c.appearing_for || document.getElementById('case-petitioner-type').value;
+        
         document.getElementById('case-partner').value = c.partner_id || '';
         document.getElementById('case-cnr').value = c.cnr_no || '';
         document.getElementById('case-notes').value = c.notes || '';
@@ -767,8 +771,26 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-modal-title').textContent = 'New Case File';
         document.getElementById('case-id').value = '';
         document.getElementById('case-year').value = new Date().getFullYear();
+        updateAppearingForOptions();
     }
     openModal('case-modal-overlay');
+}
+
+function updateAppearingForOptions() {
+    const pType = document.getElementById('case-petitioner-type').value;
+    const rType = document.getElementById('case-respondent-type').value;
+    const select = document.getElementById('case-appearing-for');
+    const currentVal = select.value;
+    
+    select.innerHTML = `
+        <option value="${pType}">${pType}</option>
+        <option value="${rType}">${rType}</option>
+    `;
+    
+    // Attempt to preserve value if it matches the new options
+    if (currentVal === pType || currentVal === rType) {
+        select.value = currentVal;
+    }
 }
 
 function populatePartnerSelect() {
@@ -892,6 +914,9 @@ document.querySelectorAll('.modal-overlay').forEach(overlay =>
 document.getElementById('sidebar-toggle').addEventListener('click', () =>
     document.getElementById('sidebar').classList.toggle('open')
 );
+
+document.getElementById('case-petitioner-type').addEventListener('change', updateAppearingForOptions);
+document.getElementById('case-respondent-type').addEventListener('change', updateAppearingForOptions);
 
 document.getElementById('cases-search-input').addEventListener('input', renderCases);
 document.getElementById('add-case-btn').addEventListener('click', () => openCaseModal());
