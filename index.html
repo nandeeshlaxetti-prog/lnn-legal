@@ -110,10 +110,6 @@
                 <span class="nav-icon">📋</span>
                 <span class="nav-label">Work Board</span>
             </a>
-            <a href="#" class="nav-item" data-page="diary" id="nav-diary">
-                <span class="nav-icon">⚖️</span>
-                <span class="nav-label">Advocate's Diary</span>
-            </a>
             <a href="#" class="nav-item" data-page="cases" id="nav-cases">
                 <span class="nav-icon">📁</span>
                 <span class="nav-label">Digital Files</span>
@@ -212,6 +208,19 @@
                     </div>
                     <div class="workload-list" id="workload-list"></div>
                 </div>
+
+                <div class="dashboard-card full-width">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center">
+                        <h2>⚖️ Cause List (Today's Hearings)</h2>
+                        <div style="display:flex; align-items:center; gap:12px">
+                            <span id="cl-date-label" style="font-size:12px; color:var(--text-secondary)">Today</span>
+                            <input type="date" id="cl-date-picker" style="padding:4px; font-size:11px; border:1px solid var(--border); border-radius:4px" />
+                        </div>
+                    </div>
+                    <div id="cause-list-container" class="diary-container">
+                        <!-- Today's hearings go here -->
+                    </div>
+                </div>
             </div>
 
             <div class="dashboard-card full-width">
@@ -244,22 +253,6 @@
             <div class="kanban-board" id="kanban-board"></div>
         </section>
 
-        <!-- DIARY / CAUSE LIST PAGE -->
-        <section class="page" id="page-diary">
-            <div class="diary-header">
-                <div style="display:flex; align-items:center; gap:16px">
-                    <input type="date" id="diary-date-picker" class="input-modern" style="width:200px" />
-                    <button class="btn-primary" id="diary-today-btn">Show Today</button>
-                </div>
-                <div class="diary-summary">
-                    <span id="diary-count">0 Hearings</span> Today
-                </div>
-            </div>
-            
-            <div id="diary-container" class="diary-container">
-                <!-- Grouped hearings go here -->
-            </div>
-        </section>
 
         <!-- CASES PAGE -->
         <section class="page" id="page-cases">

@@ -183,7 +183,6 @@ function showPage(page) {
 function renderPage(page) {
     if (page === 'dashboard') renderDashboard();
     if (page === 'board') renderBoard();
-    if (page === 'diary') renderDiary();
     if (page === 'cases') renderCases();
     if (page === 'tasks') renderTasks();
     if (page === 'team') renderTeam();
@@ -246,6 +245,51 @@ function renderDashboard() {
       <div class="stage-ov-bar" style="background:${sm.dot}"></div>
     </div>`;
     }).join('');
+
+    renderCauseList();
+}
+
+// CAUSE LIST COMPONENT (Dashboard only)
+function renderCauseList() {
+    const picker = document.getElementById('cl-date-picker');
+    const inputDate = picker.value || today();
+    const container = document.getElementById('cause-list-container');
+    const hearings = DB.cases.filter(c => c.next_hearing === inputDate);
+    
+    document.getElementById('cl-date-label').textContent = inputDate === today() ? 'Today' : inputDate;
+    
+    if (hearings.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-secondary); border:1px dashed var(--border); border-radius:8px">No hearings scheduled for this date.</div>`;
+        return;
+    }
+
+    // Group by Court
+    const groups = {};
+    hearings.forEach(h => {
+        const key = h.court_name || 'Court Not Specified';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(h);
+    });
+
+    container.innerHTML = Object.entries(groups).map(([court, list]) => `
+        <div class="diary-group">
+            <div class="diary-group-header">📍 ${esc(court)}</div>
+            ${list.map(c => `
+                <div class="diary-item" onclick="openCaseFile('${c.id}')" style="cursor:pointer">
+                    <div class="diary-info">
+                        <div style="font-weight:700; font-size:14px">${esc(c.case_type)} No. ${c.case_no}/${c.case_year}</div>
+                        <div style="font-size:12px; color:var(--text-secondary)">${esc(c.petitioner)} vs ${esc(c.respondent)}</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div class="legal-chip" style="font-size:11px; margin-bottom:4px">
+                            <span class="chip-label">Purpose:</span>
+                            <span class="chip-value" style="font-size:11px">${esc(c.purpose || 'Hearing')}</span>
+                        </div>
+                   </div>
+                </div>
+            `).join('')}
+        </div>
+    `).join('');
 }
 
 // ============================================================
@@ -1169,53 +1213,6 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     location.reload();
 });
 
-// ============================================================
-// DIARY / CAUSE LIST (Feature 1)
-// ============================================================
-function renderDiary() {
-    const inputDate = document.getElementById('diary-date-picker').value || today();
-    const container = document.getElementById('diary-container');
-    const hearings = DB.cases.filter(c => c.next_hearing === inputDate);
-    
-    document.getElementById('diary-count').textContent = `${hearings.length} Hearing${hearings.length === 1 ? '' : 's'}`;
-    
-    if (hearings.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:60px; color:var(--text-secondary)">No hearings scheduled for ${inputDate}.</div>`;
-        return;
-    }
-
-    // Group by Court (Hall/Judge)
-    const groups = {};
-    hearings.forEach(h => {
-        const key = h.court_name || 'Court Not Specified';
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(h);
-    });
-
-    container.innerHTML = Object.entries(groups).map(([court, list]) => `
-        <div class="diary-group">
-            <div class="diary-group-header">📍 ${esc(court)}</div>
-            ${list.map(c => `
-                <div class="diary-item" onclick="openCaseFile('${c.id}')" style="cursor:pointer">
-                    <div class="diary-info">
-                        <h4>${esc(c.case_type)} No. ${c.case_no}/${c.case_year}</h4>
-                        <p>${esc(c.petitioner)} vs ${esc(c.respondent)}</p>
-                    </div>
-                    <div style="text-align:right">
-                        <div class="legal-chip" style="font-size:11px; margin-bottom:4px">
-                            <span class="chip-label">Purpose:</span>
-                            <span class="chip-value">${esc(c.purpose || 'Hearing')}</span>
-                        </div>
-                        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; font-weight:700">${c.stage}</div>
-                    </div>
-                </div>
-            `).join('')}
-        </div>
-    `).join('');
-}
-
-document.getElementById('diary-date-picker').addEventListener('change', renderDiary);
-document.getElementById('diary-today-btn').onclick = () => {
-    document.getElementById('diary-date-picker').value = today();
-    renderDiary();
-};
+document.addEventListener('change', e => {
+    if (e.target.id === 'cl-date-picker') renderCauseList();
+});
