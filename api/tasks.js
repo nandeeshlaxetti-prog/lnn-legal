@@ -90,7 +90,7 @@ module.exports = async (req, res) => {
         
         const { data, error } = await supabase.from('tasks').insert([{
             title: title || 'New Task',
-            description: description || null,
+            notes: description || null, // Map description back to notes column
             stage: stage || 'Reading/Brief',
             priority: priority || 'medium',
             due: due || null,
@@ -124,7 +124,7 @@ module.exports = async (req, res) => {
         
         const updates = {};
         if (title !== undefined) updates.title = title;
-        if (description !== undefined) updates.description = description;
+        if (description !== undefined) updates.notes = description; // Map back to notes
         if (stage !== undefined) updates.stage = stage;
         if (priority !== undefined) updates.priority = priority;
         if (due !== undefined) updates.due = due;
