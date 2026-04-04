@@ -402,8 +402,7 @@ function renderCases() {
         (c.case_type || '').toLowerCase().includes(searchVal) ||
         (c.case_no || '').toLowerCase().includes(searchVal) ||
         (c.petitioner || '').toLowerCase().includes(searchVal) ||
-        (c.respondent || '').toLowerCase().includes(searchVal) ||
-        (c.cnr_no || '').toLowerCase().includes(searchVal)
+        (c.respondent || '').toLowerCase().includes(searchVal)
     );
 
     const tbody = document.getElementById('cases-table-body');
@@ -426,7 +425,6 @@ function renderCases() {
                 <div>${esc(fullNo)}</div>
                 <div class="td-sub">${esc(c.petitioner)} vs ${esc(c.respondent)}</div>
             </td>
-            <td><code>${esc(c.cnr_no || '—')}</code></td>
             <td>
                 <div>${pType}: ${esc(c.petitioner || '—')}</div>
                 <div class="td-sub">${rType}: ${esc(c.respondent || '—')}</div>
@@ -700,7 +698,6 @@ async function openCaseFile(caseId) {
     document.getElementById('cd-title').textContent = fullNo;
     document.getElementById('cd-client').textContent = `${c.petitioner || '—'} vs ${c.respondent || '—'}`;
     document.getElementById('cd-case-no').textContent = fullNo;
-    document.getElementById('cd-cnr').textContent = c.cnr_no || '—';
 
     // Sidebar Extension
     const p = DB.members.find(m => m.id === c.partner_id);
@@ -765,7 +762,6 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-appearing-for').value = c.appearing_for || document.getElementById('case-petitioner-type').value;
         
         document.getElementById('case-partner').value = c.partner_id || '';
-        document.getElementById('case-cnr').value = c.cnr_no || '';
         document.getElementById('case-notes').value = c.notes || '';
     } else {
         document.getElementById('case-modal-title').textContent = 'New Case File';
@@ -814,7 +810,6 @@ document.getElementById('case-form').addEventListener('submit', async e => {
         respondent: document.getElementById('case-respondent').value.trim(),
         appearing_for: document.getElementById('case-appearing-for').value,
         partner_id: document.getElementById('case-partner').value,
-        cnr_no: document.getElementById('case-cnr').value.trim(),
         notes: document.getElementById('case-notes').value.trim()
     };
     try {

@@ -206,12 +206,11 @@
                 <table class="tasks-table" id="cases-table">
                     <thead>
                         <tr>
-                            <th>Case / File No</th>
-                            <th>CNR Number</th>
-                            <th>Client / Party</th>
-                            <th>Stage</th>
-                            <th>Current Action</th>
-                            <th>Action</th>
+                            <th>Case Details</th>
+                            <th>Petitioner & Respondent</th>
+                            <th>Court</th>
+                            <th>Partner In-Charge</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="cases-table-body"></tbody>
@@ -300,12 +299,8 @@
                             <span class="meta-value" id="cd-client">—</span>
                         </div>
                         <div class="case-meta-item">
-                            <span class="meta-label">Case No:</span>
-                            <span class="meta-value" id="cd-case-no">—</span>
-                        </div>
-                        <div class="case-meta-item">
-                            <span class="meta-label">CNR No:</span>
-                            <span class="meta-value" id="cd-cnr">—</span>
+                            <span class="meta-label">Case No.</span>
+                            <span id="cd-case-no" class="meta-value">-</span>
                         </div>
                     </div>
                 </header>
@@ -569,13 +564,6 @@
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group full">
-                        <label>CNR Number (Optional)</label>
-                        <input type="text" id="case-cnr" placeholder="16-digit e-Courts CNR No." />
-                    </div>
-                </div>
-
-                <div class="form-row">
                     <div class="form-group">
                         <label>Court <span class="required">*</span></label>
                         <select id="case-court" required>
@@ -600,7 +588,7 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Petitioner Side <span class="required">*</span></label>
+                        <label>Petitioner / Plaintiff <span class="required">*</span></label>
                         <div style="display:flex;gap:4px">
                             <select id="case-petitioner-type" style="flex:0 0 140px;padding:8px">
                                 <option value="Petitioner">Petitioner</option>
@@ -614,7 +602,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Respondent Side <span class="required">*</span></label>
+                        <label>Respondent / Defendant <span class="required">*</span></label>
                         <div style="display:flex;gap:4px">
                             <select id="case-respondent-type" style="flex:0 0 140px;padding:8px">
                                 <option value="Respondent">Respondent</option>
