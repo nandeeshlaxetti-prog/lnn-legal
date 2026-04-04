@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
             case_type, case_no, case_year, court_name, court_hall, 
             petitioner_type, petitioner, respondent_type, respondent, 
             appearing_for, partner_id, notes, attachments,
-            stage, next_hearing, purpose, opposite_counsel, law,
+            stage, next_hearing, purpose, law,
             hearing_history
         } = req.body;
         
@@ -47,7 +47,6 @@ module.exports = async (req, res) => {
             stage: stage || 'Admission / Fresh Filing',
             next_hearing: next_hearing || null,
             purpose: purpose || null,
-            opposite_counsel: opposite_counsel || null,
             law: law || null,
             hearing_history: hearing_history || []
         }]).select().single();
@@ -62,7 +61,7 @@ module.exports = async (req, res) => {
             case_type, case_no, case_year, court_name, court_hall, 
             petitioner_type, petitioner, respondent_type, respondent, 
             appearing_for, partner_id, notes, attachments,
-            stage, next_hearing, purpose, opposite_counsel, law,
+            stage, next_hearing, purpose, law,
             hearing_history
         } = req.body;
         
@@ -84,7 +83,6 @@ module.exports = async (req, res) => {
         if (stage !== undefined) updates.stage = stage;
         if (next_hearing !== undefined) updates.next_hearing = next_hearing || null;
         if (purpose !== undefined) updates.purpose = purpose || null;
-        if (opposite_counsel !== undefined) updates.opposite_counsel = opposite_counsel || null;
         if (law !== undefined) updates.law = law || null;
         if (hearing_history !== undefined) updates.hearing_history = hearing_history;
 
