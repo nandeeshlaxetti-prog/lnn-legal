@@ -50,10 +50,16 @@ function getClient() {
 
 function mapTask(t) {
     return {
-        id: t.id, title: t.title,
+        id: t.id, 
+        title: t.title,
+        description: t.notes, // Map notes column back to description key for frontend
         assigneeId: t.assignee_id,
-        stage: t.stage, priority: t.priority,
-        due: t.due, notes: t.notes, createdAt: t.created_at,
+        stage: t.stage, 
+        priority: t.priority,
+        due: t.due, 
+        notes: t.notes, 
+        caseId: t.case_id, // CRITICAL: Include case linkage
+        createdAt: t.created_at,
         attachments: t.attachments || []
     };
 }

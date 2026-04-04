@@ -542,8 +542,8 @@ function openTaskModal(taskId = null, linkedCaseId = null) {
         document.getElementById('task-priority').value = t.priority;
         document.getElementById('task-due').value = t.due || '';
         document.getElementById('task-notes').value = t.notes || '';
-        document.getElementById('task-assignee').value = t.assignee_id || '';
-        document.getElementById('task-case-id').value = t.case_id || '';
+        document.getElementById('task-assignee').value = t.assigneeId || '';
+        document.getElementById('task-case-id').value = t.caseId || '';
     } else {
         document.getElementById('task-modal-title').textContent = 'New Office Task';
         document.getElementById('task-id').value = '';
@@ -597,7 +597,7 @@ document.getElementById('task-form').addEventListener('submit', async e => {
 
         const data = {
             title,
-            assigneeId: document.getElementById('task-assignee').value,
+            assignee_id: document.getElementById('task-assignee').value || null,
             stage: document.getElementById('task-stage').value,
             priority: document.getElementById('task-priority').value,
             due: document.getElementById('task-due').value,
