@@ -79,30 +79,56 @@ module.exports = async (req, res) => {
         }));
 
         // 3. Update in Supabase
-        const supabase = getClient();
-        const updateData = {
-            next_hearing: nextHearing,
-            case_status: caseStatus,
-            ecourts_last_sync: new Date().toISOString(),
-            hearing_history: hearingHistory,
-        };
-
-        // Only update if we have a caseId to update
         if (caseId) {
-            const { data, error } = await supabase
-                .from('cases')
-                .update(updateData)
-                .eq('id', caseId)
-                .select()
-                .single();
+            const supabase = getClient();
+            
+            // Try updating with all fields first
+            let updateData = {
+                next_hearing: nextHearing,
+                hearing_history: hearingHistory,
+                purpose: caseStatus,
+            };
 
-            if (error) throw error;
+            // Try adding optional columns (they may not exist in schema)
+            try {
+                // First attempt with all fields
+                const { data, error } = await supabase
+                    .from('cases')
+                    .update(updateData)
+                    .eq('id', caseId)
+                    .select()
+                    .single();
 
-            return res.json({
-                success: true,
-                updated: data,
-                message: `✅ Synced from eCourts. Status: ${caseStatus}. Next: ${nextHearing || 'Not announced'}. ${hearingHistory.length} hearing records imported.`
-            });
+                if (error) {
+                    // If it fails (likely missing columns), try minimal update
+                    console.error('Full update failed, trying minimal:', error.message);
+                    const { data: minData, error: minError } = await supabase
+                        .from('cases')
+                        .update({ next_hearing: nextHearing, purpose: caseStatus })
+                        .eq('id', caseId)
+                        .select()
+                        .single();
+                    
+                    if (minError) throw minError;
+                    
+                    // Manually attach hearing history to the response even if DB doesn't store it
+                    minData.hearing_history = hearingHistory;
+                    return res.json({
+                        success: true,
+                        updated: minData,
+                        message: `✅ Synced (partial). Next: ${nextHearing || 'Not announced'}. ${hearingHistory.length} hearings found. Note: Add 'hearing_history' column to Supabase for full timeline.`
+                    });
+                }
+
+                return res.json({
+                    success: true,
+                    updated: data,
+                    message: `✅ Synced from eCourts. Status: ${caseStatus}. Next: ${nextHearing || 'Not announced'}. ${hearingHistory.length} hearing records imported.`
+                });
+            } catch (dbErr) {
+                console.error('Supabase update error:', dbErr);
+                return res.status(500).json({ error: `Database update failed: ${dbErr.message}` });
+            }
         }
 
         // If no caseId, just return the raw data for preview
