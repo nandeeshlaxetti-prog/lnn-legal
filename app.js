@@ -1141,13 +1141,26 @@ document.getElementById('case-form').addEventListener('submit', async e => {
 function openHearingModal(caseId) {
     const c = DB.cases.find(x => x.id === caseId);
     if (!c) return;
+
+    // Populate Attendance Options
+    const attendanceSel = document.getElementById('h-attendance-sel');
+    attendanceSel.innerHTML = '<option value="">Select Attending Member</option>' +
+        DB.members.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('') +
+        '<option value="other">Others (Specify Name)</option>';
+
     document.getElementById('hearing-case-id').value = c.id;
     document.getElementById('h-stage').value = c.stage || 'Admission / Fresh Filing';
     document.getElementById('h-next-date').value = c.next_hearing || '';
     document.getElementById('h-purpose').value = c.purpose || '';
     document.getElementById('h-result').value = '';
+    document.getElementById('h-attendance-other').style.display = 'none';
+    
     openModal('hearing-modal-overlay');
 }
+
+document.getElementById('h-attendance-sel').addEventListener('change', (e) => {
+    document.getElementById('h-attendance-other').style.display = (e.target.value === 'other') ? 'block' : 'none';
+});
 
 document.getElementById('hearing-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1156,7 +1169,10 @@ document.getElementById('hearing-form').addEventListener('submit', async (e) => 
     if (!oldCase) return;
 
     const lastResult = document.getElementById('h-result').value.trim();
-    const attendance = document.getElementById('h-attendance').value;
+    const selVal = document.getElementById('h-attendance-sel').value;
+    const specified = document.getElementById('h-attendance-other').value.trim();
+    const attendance = (selVal === 'other') ? specified : selVal;
+    
     let history = oldCase.hearing_history || [];
     
     // Archive if result provided
@@ -1164,7 +1180,7 @@ document.getElementById('hearing-form').addEventListener('submit', async (e) => 
         history = [{
             date: oldCase.next_hearing || today(),
             purpose: oldCase.purpose || 'Scheduled Hearing',
-            attendance: attendance,
+            attendance: attendance || 'Attended',
             result: lastResult
         }, ...history];
     }

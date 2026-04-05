@@ -82,14 +82,13 @@
                 </div>
 
                 <div class="form-group full">
-                    <label>Hearing Attendance</label>
-                    <select id="h-attendance">
-                        <option value="Firm Member Attended">Firm Member Attended</option>
-                        <option value="Senior Counsel Appointed">Senior Counsel Appointed (Assisted)</option>
-                        <option value="Associate Present">Associate Present (Memo Filed)</option>
-                        <option value="Opposite Party Absent">Opposite Party Absent (Adjourned)</option>
-                        <option value="Court Adjourned">Court Adjourned (No Hearing)</option>
+                    <label>Hearing Attendance <span class="required">*</span></label>
+                    <select id="h-attendance-sel" required>
+                        <option value="">Select Attending Member</option>
+                        <!-- Dynamic Members -->
+                        <option value="other">Others (Specify Name)</option>
                     </select>
+                    <input type="text" id="h-attendance-other" placeholder="Specify Appearance Name/Title..." style="display:none; margin-top:8px; background:rgba(255,255,255,0.03)" />
                 </div>
 
                 <div class="form-group full">
