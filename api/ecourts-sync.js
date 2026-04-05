@@ -1,5 +1,5 @@
-const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
+// eCourtsIndia Partner Sync utilizing Native Fetch (Node 18+)
 
 function getClient() {
     return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);

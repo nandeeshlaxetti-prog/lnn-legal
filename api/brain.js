@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// AI Brain Integration utilizing Native Fetch (Node 18+)
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
