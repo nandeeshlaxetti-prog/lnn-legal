@@ -164,6 +164,18 @@ function refreshAssigneeSelects() {
     populateAssigneeFilter('tasks-filter-assignee', document.getElementById('tasks-filter-assignee').value);
 }
 
+function populateAssigneeSelect(id, current) {
+    const el = document.getElementById(id); if (!el) return;
+    el.innerHTML = '<option value="">Select Assignee</option>' + 
+        DB.members.map(m => `<option value="${m.id}" ${m.id === current ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+}
+
+function populateAssigneeFilter(id, current) {
+    const el = document.getElementById(id); if (!el) return;
+    el.innerHTML = '<option value="all">All Members</option>' + 
+        DB.members.map(m => `<option value="${m.id}" ${m.id === current ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+}
+
 // ============================================================
 // NAVIGATION
 // ============================================================
@@ -399,6 +411,55 @@ async function openDetail(id) {
     openModal('detail-modal-overlay');
 }
 
+async function openTaskModal(id = null) {
+    const form = document.getElementById('task-form'); form.reset();
+    const taskIdEl = document.getElementById('task-id'); if (taskIdEl) taskIdEl.value = id || '';
+    if (id) {
+        const t = DB.tasks.find(x => x.id === id); if (!t) return;
+        document.getElementById('task-title').value = t.title;
+        document.getElementById('task-stage').value = t.stage;
+        document.getElementById('task-priority').value = t.priority;
+        document.getElementById('task-due').value = t.due || '';
+        document.getElementById('task-notes').value = t.notes || '';
+        populateAssigneeSelect('task-assignee', t.assigneeId);
+    } else {
+        populateAssigneeSelect('task-assignee', '');
+    }
+    openModal('task-modal-overlay');
+}
+
+document.getElementById('task-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('task-id').value;
+    const data = {
+        title: document.getElementById('task-title').value,
+        stage: document.getElementById('task-stage').value,
+        priority: document.getElementById('task-priority').value,
+        due: document.getElementById('task-due').value,
+        notes: document.getElementById('task-notes').value,
+        assignee_id: document.getElementById('task-assignee').value,
+        _userName: document.getElementById('current-user-name').textContent
+    };
+    try {
+        if (id) await API.updateTask(id, data); else await API.createTask(data);
+        showToast('Sync Successful'); closeModal('task-modal-overlay'); await fetchAll(); renderPage(currentPage);
+    } catch (err) { showToast('Sync Failed', 'error'); }
+};
+
+async function deleteTask(id) {
+    if (!confirm('Permanent Delete: Are you sure?')) return;
+    try {
+        await API.deleteTask(id); showToast('Task purged.'); await fetchAll(); renderPage(currentPage);
+    } catch (e) { showToast('Purge failed', 'error'); }
+}
+
+async function deleteCase(id) {
+    if (!confirm('This will purge the entire case dossier. Proceed?')) return;
+    try {
+        await API.deleteCase(id); showToast('Dossier Purged'); await fetchAll(); renderPage('cases');
+    } catch (e) { showToast('Error purging dossier', 'error'); }
+}
+
 async function openCaseFile(id) {
     const c = DB.cases.find(x => x.id === id); if (!c) return;
     currentCaseInView = c; showPage('case-detail');
@@ -418,6 +479,74 @@ async function openCaseFile(id) {
             <div style="font-size:13px; color:var(--text-secondary)">Result: ${esc(e.result)}</div>
         </div>
     `).join('') || '<p>No litigation history.</p>';
+}
+
+async function openCaseModal(id = null) {
+    const form = document.getElementById('case-form'); form.reset();
+    const caseIdEl = document.getElementById('case-id'); if (caseIdEl) caseIdEl.value = id || '';
+    if (id) {
+        const c = DB.cases.find(x => x.id === id); if (!c) return;
+        document.getElementById('case-no').value = c.case_no;
+        document.getElementById('case-year').value = c.case_year;
+        document.getElementById('case-type').value = c.case_type;
+        document.getElementById('case-petitioner').value = c.petitioner;
+        document.getElementById('case-respondent').value = c.respondent;
+        document.getElementById('case-court').value = c.court_name;
+        document.getElementById('case-notes').value = c.notes || '';
+    }
+    openModal('case-modal-overlay');
+}
+
+document.getElementById('case-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('case-id').value;
+    const data = {
+        case_no: document.getElementById('case-no').value,
+        case_year: document.getElementById('case-year').value,
+        case_type: document.getElementById('case-type').value,
+        petitioner: document.getElementById('case-petitioner').value,
+        respondent: document.getElementById('case-respondent').value,
+        court_name: document.getElementById('case-court').value,
+        notes: document.getElementById('case-notes').value,
+        _userName: document.getElementById('current-user-name').textContent
+    };
+    try {
+        if (id) await API.updateCase(id, data); else await API.createCase(data);
+        showToast('Dossier Synchronized'); closeModal('case-modal-overlay'); await fetchAll(); renderPage('cases');
+    } catch (err) { showToast('Dossier Sync Failed', 'error'); }
+};
+
+async function openMemberModal(id = null) {
+    const form = document.getElementById('member-form'); form.reset();
+    const memberIdEl = document.getElementById('member-id'); if (memberIdEl) memberIdEl.value = id || '';
+    if (id) {
+        const m = DB.members.find(x => x.id === id); if (!m) return;
+        document.getElementById('member-name').value = m.name;
+        document.getElementById('member-role').value = m.role;
+        document.getElementById('member-email').value = m.email || '';
+    }
+    openModal('member-modal-overlay');
+}
+
+document.getElementById('member-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('member-id').value;
+    const data = {
+        name: document.getElementById('member-name').value,
+        role: document.getElementById('member-role').value,
+        email: document.getElementById('member-email').value,
+    };
+    try {
+        if (id) await API.updateMember(id, data); else await API.createMember(data);
+        showToast('Team Registry Updated'); closeModal('member-modal-overlay'); await fetchAll(); renderPage('team');
+    } catch (err) { showToast('Registry Update Failed', 'error'); }
+};
+
+async function deleteMember(id) {
+    if (!confirm('Remove member from registry?')) return;
+    try {
+        await API.deleteMember(id); showToast('Member Removed'); await fetchAll(); renderPage('team');
+    } catch (e) { showToast('Error removing member', 'error'); }
 }
 
 // (Full CRUD and Event Handlers follow in the same stable pattern)
