@@ -771,6 +771,40 @@
         </div>
     </div>
 
+    <!-- AI Brain: Litigation Strategy Assistant -->
+    <button class="brain-fab" id="lnn-brain-btn" title="LNN Legal AI Brain">🧠</button>
+    <div class="modal-overlay" id="lnn-brain-overlay" style="background: rgba(0,0,0,0.4)">
+        <div class="ai-sidebar">
+            <div class="ai-header">
+                <div style="display:flex; align-items:center; gap:12px">
+                    <span style="font-size:24px">🧠</span>
+                    <div>
+                        <div style="font-weight:800; font-size:16px; letter-spacing:0.02em">LNN LEGAL BRAIN</div>
+                        <div style="display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text-muted)">
+                            <span id="ai-status-dot" style="width:6px; height:6px; border-radius:50%; background:#f59e0b"></span>
+                            <span id="ai-status-text">Intelligence Link: Syncing...</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeModal('lnn-brain-overlay')">✕</button>
+            </div>
+            <div class="ai-body">
+                <div class="ai-messages" id="ai-chat-history">
+                    <div class="ai-msg bot">Hello! I am your Litigation Reasoning Engine. How can I assist with your current caseload and office strategy today?</div>
+                </div>
+                <div class="ai-quick-actions" id="ai-quick-actions">
+                    <button class="ai-action-btn" onclick="askBrain('Summarize my current litigation workload')">📋 Workload Summary</button>
+                    <button class="ai-action-btn" onclick="askBrain('Identify high-priority deadlines for this week')">🚨 Priority Deadlines</button>
+                    <button class="ai-action-btn" onclick="askBrain('Check team member efficiency')">👥 Team Audit</button>
+                </div>
+            </div>
+            <div class="ai-footer">
+                <textarea id="ai-input" placeholder="Ask the brain about any case or strategy..." rows="1"></textarea>
+                <button class="btn-primary" id="ai-send-btn">🚀</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div class="toast" id="toast"></div>
 
