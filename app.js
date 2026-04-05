@@ -1326,6 +1326,53 @@ document.querySelectorAll('.view-all').forEach(el =>
     el.addEventListener('click', e => { e.preventDefault(); showPage(el.dataset.page); })
 );
 document.getElementById('add-member-btn').addEventListener('click', () => openMemberModal());
+document.getElementById('lnn-brain-btn').addEventListener('click', () => openModal('lnn-brain-overlay'));
+
+// ============================================================
+// LNN LEGAL BRAIN: AI ASSISTANT LOGIC
+// ============================================================
+async function askBrain(query) {
+    const input = document.getElementById('ai-input');
+    const msg = query || input.value.trim();
+    if (!msg) return;
+    
+    if (!query) input.value = '';
+    appendMessage('user', msg);
+    
+    const botMsgDiv = appendMessage('bot', '🧠 Analysing Litigation Files...');
+    
+    try {
+        const res = await fetch('/api/brain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                query: msg,
+                contextCase: currentCaseInView,
+                data: { cases: DB.cases, tasks: DB.tasks } 
+            })
+        });
+        const data = await res.json();
+        botMsgDiv.textContent = data.answer || 'Consultation complete. Proceeding with litigation strategy.';
+    } catch (err) {
+        botMsgDiv.textContent = 'Connection to LNN Brain interrupted. Please re-synchronize.';
+        console.error(err);
+    }
+}
+
+function appendMessage(who, text) {
+    const history = document.getElementById('ai-chat-history');
+    const div = document.createElement('div');
+    div.className = `ai-msg ${who}`;
+    div.textContent = text;
+    history.appendChild(div);
+    history.scrollTop = history.scrollHeight;
+    return div;
+}
+
+document.getElementById('ai-send-btn').addEventListener('click', () => askBrain());
+document.getElementById('ai-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askBrain(); }
+});
 
 ['task-modal-close', 'task-cancel-btn'].forEach(id =>
     document.getElementById(id)?.addEventListener('click', () => closeModal('task-modal-overlay'))
