@@ -851,24 +851,65 @@ async function openCaseFile(caseId) {
         }).join('') || '<div style="color:var(--text-secondary); font-size:13px">No categorized documents.</div>';
     }
 
-    // Professional Hearing History Log
+    // ============================================================
+    // CONSOLIDATED LITIGATION TIMELINE (Unified Past + Future)
+    // ============================================================
     const historyList = document.getElementById('cd-hearing-history');
     if (!historyList) return;
-    const history = c.hearing_history || [];
 
-    if (history.length === 0) {
-        historyList.innerHTML = `<div style="padding:20px; text-align:center; color:var(--text-secondary); font-size:13px">No past hearing history recorded for this matter.</div>`;
+    // 1. Prepare All Chronological Events
+    const events = [];
+    
+    // Add Upcoming (if set)
+    if (c.next_hearing) {
+        events.push({
+            date: c.next_hearing,
+            purpose: c.purpose || 'Scheduled Hearing',
+            type: 'upcoming',
+            isToday: c.next_hearing === today()
+        });
+    }
+    
+    // Add Past History
+    (c.hearing_history || []).forEach(h => {
+        events.push({
+            date: h.date,
+            purpose: h.purpose,
+            attendance: h.attendance,
+            result: h.result,
+            type: 'past'
+        });
+    });
+
+    // 2. Sort by Date DESC (Future on top)
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (events.length === 0) {
+        historyList.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-secondary); border:1px dashed var(--border); border-radius:12px">No litigation events recorded. Click 'Update Matter Status' to synchronize your schedule.</div>`;
     } else {
-        historyList.innerHTML = history.slice(0).reverse().map(h => `
-            <div class="timeline-item" style="border-left:2px solid var(--primary); padding-left:16px; margin-bottom:16px; position:relative">
-                <div style="width:10px; height:10px; border-radius:50%; background:var(--primary); position:absolute; left:-6px; top:4px"></div>
-                <div style="font-size:12px; font-weight:700; color:var(--primary)">${new Date(h.date).toLocaleDateString()}</div>
-                <div style="font-size:11px; color:var(--text-secondary); margin-bottom:4px">${esc(h.purpose)} • <span style="color:var(--text-primary); font-weight:600">${esc(h.attendance || 'Attended')}</span></div>
-                <div style="font-size:13px; color:var(--text-secondary); background:var(--bg-secondary); padding:8px; border-radius:4px; margin-top:4px">
-                    ${esc(h.result)}
+        historyList.innerHTML = events.map(e => {
+            const isUp = e.type === 'upcoming';
+            const accent = isUp ? 'var(--accent)' : 'var(--border)';
+            const border = isUp ? 'var(--accent)' : 'var(--border)';
+            const bg = isUp ? 'rgba(99, 102, 241, 0.08)' : 'transparent';
+
+            return `
+                <div class="timeline-item" style="border-left:3px solid ${border}; padding-left:24px; margin-bottom:24px; position:relative; background:${bg}; padding-top:12px; padding-bottom:12px; border-radius:0 8px 8px 0">
+                    <div style="width:14px; height:14px; border-radius:50%; background:${isUp ? 'var(--accent)' : 'var(--text-muted)'}; position:absolute; left:-9px; top:16px; border:3px solid var(--bg-card)"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px">
+                        <span style="font-size:12px; font-weight:800; color:${isUp ? 'var(--accent)' : 'var(--text-secondary)'}; background:rgba(255,255,255,0.03); padding:2px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em">
+                            ${isUp ? (e.isToday ? '🚨 LISTED FOR TODAY' : '🗓️ UPCOMING LISTING') : '✅ COMPLETED HEARING'}
+                        </span>
+                        <span style="font-size:12px; font-weight:700; color:var(--text-primary)">
+                            ${new Date(e.date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                        </span>
+                    </div>
+                    <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px">${esc(e.purpose)}</div>
+                    ${e.attendance ? `<div style="font-size:11px; color:var(--text-secondary); margin-bottom:8px">Appearance: <span style="color:var(--text-primary); font-weight:600">${esc(e.attendance)}</span></div>` : ''}
+                    ${e.result ? `<div style="font-size:13px; color:var(--text-secondary); background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; line-height:1.4; border:1px solid rgba(255,255,255,0.05)">${esc(e.result)}</div>` : ''}
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     // Linked Office Works (Feature 2)
