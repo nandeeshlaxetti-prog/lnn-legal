@@ -1604,7 +1604,4 @@ async function askBrain(q) {
 document.getElementById('ai-send-btn').addEventListener('click', () => askBrain());
 document.getElementById('ai-input').addEventListener('keypress', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askBrain(); } });
 
-function syncCurrentCaseWithECourts() {
-    showToast('eCourts sync initiated...', 'info');
-    // Placeholder — requires backend /api/ecourts-sync
-}
+
