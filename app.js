@@ -1527,9 +1527,9 @@ async function initApp() {
         
         startAutoRefresh();
     } catch (err) {
-        showToast('Litigation Database Syncing. Please wait...', 'warning');
-        console.error('LNN_BOOT_ERROR:', err);
-        setTimeout(initApp, 5000); 
+        showToast('LNN_SYNC_ERROR: ' + (err.message || 'Check connection'), 'error');
+        console.error('LNN_BOOT_CRITICAL_FAILURE:', err);
+        setTimeout(initApp, 10000); 
     } finally {
         setLoading(false);
     }
