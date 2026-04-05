@@ -84,13 +84,26 @@ function dueTxt(due) {
 }
 function esc(str) { return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-function showToast(msg, type = 'success') {
+function showToast(msg, type = 'success', diagnostic = false) {
     const t = document.getElementById('toast');
-    if (!t) { alert(msg); return; } // Hard fail-safe
-    t.textContent = msg;
+    if (!t) { alert(msg); return; } 
+    
+    t.innerHTML = msg + (diagnostic ? ` <button onclick="runDiagnostic()" style="background:rgba(255,255,255,0.2); border:1px solid white; color:white; padding:4px 8px; border-radius:4px; font-size:10px; cursor:pointer; margin-left:10px">🔍 Diagnostic</button>` : '');
     t.className = `toast show ${type}`;
     clearTimeout(t._timer);
-    t._timer = setTimeout(() => t.className = 'toast', 2800);
+    if (!diagnostic) t._timer = setTimeout(() => t.className = 'toast', 2800);
+}
+
+async function runDiagnostic() {
+    showToast('🚨 Executing Cloud Diagnostic...', 'info');
+    try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        const report = Object.entries(data.report).map(([k, v]) => `${k.toUpperCase()}: ${v}`).join('\n');
+        alert('LNN LEGAL - CLOUD DIAGNOSTIC REPORT\n====================================\n\n' + report + '\n\nVerify these in your Vercel Project Settings.');
+    } catch (err) {
+        alert('Diagnostic Failed: Unable to reach Cloud Responder. Vercel deployment may still be building or is misconfigured.');
+    }
 }
 
 function setLoading(on) {
@@ -360,7 +373,7 @@ async function initApp() {
         console.log('LNN_INIT: Workspace stabilized ✓');
     } catch (err) {
         console.error('LNN_BOOT_FAILURE:', err);
-        showToast('Sync Failed. Check credentials.', 'error');
+        showToast('Sync Failed. Check credentials.', 'error', true);
         setTimeout(initApp, 10000);
     } finally {
         setLoading(false);
