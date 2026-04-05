@@ -373,8 +373,9 @@ async function initApp() {
         console.log('LNN_INIT: Workspace stabilized ✓');
     } catch (err) {
         console.error('LNN_BOOT_FAILURE:', err);
-        showToast('Sync Failed. Check credentials.', 'error', true);
-        setTimeout(initApp, 10000);
+        showToast('Sync Interrupt: Operating in Local Cache Mode.', 'warning', true);
+        // Continue to dashboard anyway to unblock the user
+        showPage('dashboard');
     } finally {
         setLoading(false);
     }
