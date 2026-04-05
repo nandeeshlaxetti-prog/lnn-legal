@@ -588,8 +588,11 @@ function renderTaskFiles() {
     const list = document.getElementById('task-file-list');
     if (!list) return;
     list.innerHTML = currentTaskAttachments.map((f, i) => `
-        <div class="file-pill" style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; margin-bottom:4px; font-size:12px">
-            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%">${esc(f.name)}</span>
+        <div class="file-pill" style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,240,0.05); padding:6px 10px; border-radius:6px; margin-bottom:4px; font-size:12px">
+            <div style="display:flex; align-items:center; gap:8px; overflow:hidden; max-width:80%">
+                <a href="${f.url}" target="_blank" style="text-decoration:none; font-size:12px; color:var(--accent)">🔗</a>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(f.name)}</span>
+            </div>
             <button type="button" onclick="removeTaskAttachment(${i})" style="border:none; background:none; cursor:pointer; color:#ef4444; padding:0 4px">✕</button>
         </div>
     `).join('');
@@ -776,7 +779,23 @@ async function openDetail(taskId) {
       <div class="detail-field"><label>Due Date</label><p class="due-text ${ds}">${dueTxt(t.due)}</p></div>
     </div>
     <div class="detail-field" style="margin:16px 0"><label>Office Notes</label>
-      <div class="detail-notes" style="background:var(--bg-secondary);padding:12px;border-radius:6px;font-size:14px">${esc(t.notes || 'No notes.')}</div>
+      <div class="detail-notes" style="background:var(--bg-secondary);padding:12px;border-radius:6px;font-size:14px">${esc(t.notes || 'No notes added.')}</div>
+    </div>
+    
+    <!-- Task Attachments Section -->
+    <div class="detail-field" style="margin:16px 0">
+      <label style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase">📑 Attached Briefcase & Artifacts</label>
+      <div id="detail-attachments" style="margin-top:8px; display:grid; grid-template-columns:repeat(auto-fill, minmax(130px,1fr)); gap:8px">
+        ${(t.attachments || []).map(f => `
+          <a href="${f.url}" target="_blank" class="doc-card" style="padding:8px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:4px; text-decoration:none; display:flex; align-items:center; gap:8px">
+            <span style="font-size:16px">${f.url?.includes('.pdf') ? '📄' : '🖼️'}</span>
+            <div style="flex:1; overflow:hidden">
+              <div style="font-size:10px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(f.name)}</div>
+            </div>
+            <span style="font-size:12px; color:var(--accent)">🔗 Open</span>
+          </a>
+        `).join('') || '<div style="color:var(--text-muted); font-size:12px">No attachments for this action.</div>'}
+      </div>
     </div>
     
     <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border)">
@@ -867,7 +886,7 @@ async function openCaseFile(caseId) {
                                     <div style="font-size:11px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
                                 </div>
                                 <div style="display:flex; gap:8px; flex-shrink:0">
-                                    <a href="${d.url}" target="_blank" style="text-decoration:none; padding:4px; font-size:12px">👁️</a>
+                                    <a href="${d.url}" target="_blank" style="text-decoration:none; padding:4px; font-size:12px">🔗</a>
                                     <button class="doc-del-btn" id="cd-del-doc-btn-${mainIdx}" style="padding:4px; border:none; background:none; cursor:pointer; font-size:12px; color:#ef4444; opacity:0.6">🗑️</button>
                                 </div>
                             </div>`;
