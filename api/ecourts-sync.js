@@ -21,7 +21,18 @@ module.exports = async (req, res) => {
     }
 
     try {
-        // 1. Fetch from eCourts India Partner API
+        // 1. Trigger a live refresh from eCourts servers first
+        try {
+            await fetch(`https://webapi.ecourtsindia.com/api/partner/case/${cnr}/refresh`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            // Wait for the scrape to complete (API says 5-10 min, but often faster)
+            await new Promise(r => setTimeout(r, 8000));
+        } catch (e) { /* refresh is best-effort, continue with fetch */ }
+
+        // 2. Fetch case data (now hopefully refreshed)
         const response = await fetch(`https://webapi.ecourtsindia.com/api/partner/case/${cnr}`, {
             headers: { 'Authorization': `Bearer ${apiKey}` }
         });
