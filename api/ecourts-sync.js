@@ -39,13 +39,23 @@ module.exports = async (req, res) => {
             return res.status(404).json({ error: "No case data found for this CNR on eCourts." });
         }
 
-        // 2. Extract key fields from the API response
-        const nextHearing = entityInfo?.nextDateOfHearing 
+        // 2. Extract key fields — prefer hearing history's last entry (more reliable than entityInfo)
+        const hearings = courtData.historyOfCaseHearings || [];
+        const lastHistoryEntry = hearings.length > 0 ? hearings[hearings.length - 1] : null;
+        
+        // The most recent hearing's "hearingDate" field = the actual next date posted by the court
+        const nextFromHistory = lastHistoryEntry?.hearingDate || null;
+        const nextFromEntity = entityInfo?.nextDateOfHearing 
             ? entityInfo.nextDateOfHearing.split('T')[0] 
             : null;
-        const lastHearing = entityInfo?.lastDateOfHearing
-            ? entityInfo.lastDateOfHearing.split('T')[0]
-            : courtData.lastHearingDate || null;
+        
+        // Use whichever is later (most up-to-date)
+        const nextHearing = (nextFromHistory && nextFromEntity) 
+            ? (nextFromHistory > nextFromEntity ? nextFromHistory : nextFromEntity)
+            : nextFromHistory || nextFromEntity;
+        
+        const lastHearing = lastHistoryEntry?.businessOnDate 
+            || (entityInfo?.lastDateOfHearing ? entityInfo.lastDateOfHearing.split('T')[0] : null);
         const caseStatus = courtData.caseStatus || 'Unknown';
         const judges = (courtData.judges || []).join(', ');
         
