@@ -1,5 +1,5 @@
 // ============================================================
-// IN-MEMORY STORE (populated from API)
+// LNN LEGAL — DIGITAL BRIEFCASE v1.2.0 (STABLE)
 // ============================================================
 const DB = { tasks: [], members: [], cases: [] };
 
