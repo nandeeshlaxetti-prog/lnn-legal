@@ -555,6 +555,7 @@ function openTaskModal(taskId = null, linkedCaseId = null) {
     if (taskId) {
         const t = DB.tasks.find(t => t.id === taskId);
         if (!t) return;
+        currentTaskAttachments = [...(t.attachments || [])];
         document.getElementById('task-modal-title').textContent = 'Edit Office Task';
         document.getElementById('task-id').value = t.id;
         document.getElementById('task-title').value = t.title;
@@ -578,8 +579,26 @@ function openTaskModal(taskId = null, linkedCaseId = null) {
         document.getElementById('task-case-id').value = linkedCaseId || '';
     }
 
+    // Refresh file list display
+    renderTaskFiles();
     openModal('task-modal-overlay');
 }
+
+function renderTaskFiles() {
+    const list = document.getElementById('task-file-list');
+    if (!list) return;
+    list.innerHTML = currentTaskAttachments.map((f, i) => `
+        <div class="file-pill" style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:6px 10px; border-radius:6px; margin-bottom:4px; font-size:12px">
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%">${esc(f.name)}</span>
+            <button type="button" onclick="removeTaskAttachment(${i})" style="border:none; background:none; cursor:pointer; color:#ef4444; padding:0 4px">✕</button>
+        </div>
+    `).join('');
+}
+
+window.removeTaskAttachment = function (idx) {
+    currentTaskAttachments.splice(idx, 1);
+    renderTaskFiles();
+};
 
 window.removeAttachment = function (idx) {
     currentTaskAttachments.splice(idx, 1);
@@ -760,10 +779,18 @@ async function openDetail(taskId) {
       <div class="detail-notes" style="background:var(--bg-secondary);padding:12px;border-radius:6px;font-size:14px">${esc(t.notes || 'No notes.')}</div>
     </div>
     
-    <div class="modal-actions" style="border-top:1px solid var(--border);padding-top:16px">
+    <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border)">
+       <label style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase">📅 Professional History & Tracking</label>
+       <div id="detail-logs-container" style="margin-top:12px"></div>
+    </div>
+    
+    <div class="modal-actions" style="border-top:1px solid var(--border);padding-top:16px; margin-top:20px">
       <button class="btn-secondary" onclick="closeModal('detail-modal-overlay')">Close</button>
       <button class="btn-primary" onclick="closeModal('detail-modal-overlay');openTaskModal('${t.id}')">✏️ Edit Action</button>
     </div>`;
+
+    // Populate logs in the container after the body structure is set
+    document.getElementById('detail-logs-container').innerHTML = logsHtml;
 }
 
 // ============================================================
