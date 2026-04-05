@@ -96,6 +96,13 @@
                     <textarea id="h-result" rows="3" placeholder="Provide a summary of the orders or adjournment..."></textarea>
                 </div>
 
+                <div class="ai-quick-actions">
+                    <button class="ai-action-btn" onclick="askBrain('Generate Briefing')">📜 Brief Case</button>
+                    <button class="ai-action-btn" onclick="syncCurrentCaseWithECourts()">🔄 Full eCourts Sync</button>
+                    <button class="ai-action-btn" onclick="askBrain('Analyze Load')">⚖️ Team Load</button>
+                    <button class="ai-action-btn" onclick="askBrain('Find Urgents')">🚨 Urgents</button>
+                </div>
+
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="closeModal('hearing-modal-overlay')">Cancel</button>
                     <button type="submit" class="btn-primary">Update Timeline</button>
@@ -372,10 +379,11 @@
                     </div>
                     <div class="case-title-row">
                         <h2 id="cd-title">Case Title</h2>
-                        <div class="case-actions">
-                            <button class="btn-primary" id="cd-edit-btn">✏️ Edit Case</button>
-                            <button id="cd-delete-case-btn" class="btn-secondary" style="color:#ef4444; border-color:rgba(239, 68, 68, 0.3); display:none">🗑️ Delete Case</button>
+                        <div class="case-header-actions" style="display:flex; gap:12px; align-items:center">
+                            <button class="btn-primary" id="cd-edit-btn" style="background:#4b5563; border-color:#6b7280; font-size:12px">✏️ Edit Case</button>
+                            <button class="btn-primary" id="cd-sync-btn" style="background:var(--accent); font-size:12px">🔄 Sync with eCourts</button>
                         </div>
+                        <button id="cd-delete-case-btn" class="btn-secondary" style="color:#ef4444; border-color:rgba(239, 68, 68, 0.3); display:none">🗑️ Delete Case</button>
                     </div>
                     <div class="case-meta-row" style="margin-top:12px; display:block">
                         <div class="case-meta-item">

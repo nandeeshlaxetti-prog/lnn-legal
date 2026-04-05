@@ -1374,6 +1374,46 @@ document.getElementById('ai-input').addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askBrain(); }
 });
 
+async function syncCurrentCaseWithECourts(caseId) {
+    const id = caseId || currentCaseInView?.id;
+    const c = DB.cases.find(x => x.id === id);
+    if (!c) { showToast('Case not found for sync', 'error'); return; }
+    if (!c.cnr) { showToast('CNR No. missing. Add CNR to enable Sync.', 'warning'); return; }
+
+    const btn = document.getElementById('cd-sync-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '🔄 Syncing...'; }
+
+    try {
+        const res = await fetch('/api/ecourts-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caseId: c.id, cnr: c.cnr })
+        });
+        const data = await res.json();
+        
+        if (data.error) throw new Error(data.error);
+
+        // Update local DB
+        const idx = DB.cases.findIndex(x => x.id === c.id);
+        if (idx !== -1) DB.cases[idx] = data.updated;
+        
+        showToast(data.message || 'Case synchronized ✓');
+        
+        // Refresh UI if in view
+        if (currentCaseInView?.id === c.id) {
+            currentCaseInView = data.updated;
+            openCaseFile(c.id); 
+        }
+    } catch (err) {
+        showToast(err.message || 'eCourts Sync Failed', 'error');
+        console.error(err);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync with eCourts'; }
+    }
+}
+
+document.getElementById('cd-sync-btn')?.addEventListener('click', () => syncCurrentCaseWithECourts());
+
 ['task-modal-close', 'task-cancel-btn'].forEach(id =>
     document.getElementById(id)?.addEventListener('click', () => closeModal('task-modal-overlay'))
 );
@@ -1487,8 +1527,9 @@ async function initApp() {
         
         startAutoRefresh();
     } catch (err) {
-        showToast('Could not connect to database. Check your setup.', 'error');
-        showPage('dashboard'); // render empty
+        showToast('Litigation Database Syncing. Please wait...', 'warning');
+        console.error('LNN_BOOT_ERROR:', err);
+        setTimeout(initApp, 5000); 
     } finally {
         setLoading(false);
     }

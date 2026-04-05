@@ -4,6 +4,7 @@
     "description": "LNN Legal — Office Work Management System",
     "dependencies": {
         "@supabase/supabase-js": "^2.39.0",
-        "nodemailer": "^6.9.11"
+        "nodemailer": "^6.9.11",
+        "node-fetch": "^2.7.0"
     }
 }
