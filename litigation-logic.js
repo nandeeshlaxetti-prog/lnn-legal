@@ -1114,6 +1114,7 @@ function openCaseModal(caseId = null) {
         document.getElementById('case-appearing-for').value = c.appearing_for || document.getElementById('case-petitioner-type').value;
         
         document.getElementById('case-partner').value = c.partner_id || '';
+        document.getElementById('case-cnr').value = c.cnr || '';
         document.getElementById('case-notes').value = c.notes || '';
     } else {
         document.getElementById('case-modal-title').textContent = 'New Case File';
@@ -1163,6 +1164,7 @@ document.getElementById('case-form').addEventListener('submit', async e => {
         respondent: document.getElementById('case-respondent').value.trim(),
         appearing_for: document.getElementById('case-appearing-for').value,
         partner_id: document.getElementById('case-partner').value,
+        cnr: (document.getElementById('case-cnr').value || '').trim().toUpperCase(),
         notes: document.getElementById('case-notes').value.trim()
     };
 
