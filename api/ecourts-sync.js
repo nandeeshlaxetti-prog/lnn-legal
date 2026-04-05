@@ -1,5 +1,4 @@
 const { createClient } = require('@supabase/supabase-js');
-// eCourtsIndia Partner Sync utilizing Native Fetch (Node 18+)
 
 function getClient() {
     return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -12,57 +11,101 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     const { caseId, cnr } = req.body;
-    const apiKey = process.env.ECOURTS_INDIA_TOKEN; // Bearer eci_live_...
+    const apiKey = process.env.ECOURTS_INDIA_TOKEN;
 
     if (!apiKey) {
-        return res.status(500).json({ error: "eCourtsIndia Partner API Token missing from environment variables." });
+        return res.status(500).json({ error: "eCourts India API Token missing. Add ECOURTS_INDIA_TOKEN to Vercel env vars." });
     }
-
     if (!cnr) {
         return res.status(400).json({ error: "CNR number is required for synchronization." });
     }
 
     try {
-        // 1. Fetch from eCourtsIndia Partner REST API
+        // 1. Fetch from eCourts India Partner API
         const response = await fetch(`https://webapi.ecourtsindia.com/api/partner/case/${cnr}`, {
             headers: { 'Authorization': `Bearer ${apiKey}` }
         });
 
-        if (!response.ok) throw new Error(`eCourts Fetch Failed: ${response.statusText}`);
+        if (!response.ok) {
+            const errBody = await response.json().catch(() => ({}));
+            throw new Error(errBody.error?.message || `eCourts returned HTTP ${response.status}`);
+        }
+
         const result = await response.json();
         const courtData = result.data?.courtCaseData;
+        const entityInfo = result.data?.entityInfo;
 
-        if (!courtData) return res.status(404).json({ error: "No case data found for this CNR." });
+        if (!courtData) {
+            return res.status(404).json({ error: "No case data found for this CNR on eCourts." });
+        }
 
-        // 2. Map to LNN Legal Schema
-        const nextH = courtData.nextHearingDate || null;
-        const purpose = courtData.caseStatus || "Scheduled Hearing";
+        // 2. Extract key fields from the API response
+        const nextHearing = entityInfo?.nextDateOfHearing 
+            ? entityInfo.nextDateOfHearing.split('T')[0] 
+            : null;
+        const lastHearing = entityInfo?.lastDateOfHearing
+            ? entityInfo.lastDateOfHearing.split('T')[0]
+            : courtData.lastHearingDate || null;
+        const caseStatus = courtData.caseStatus || 'Unknown';
+        const judges = (courtData.judges || []).join(', ');
         
-        // 3. Update Supabase
+        // Build hearing history from eCourts data
+        const hearingHistory = (courtData.historyOfCaseHearings || []).map(h => ({
+            date: h.businessOnDate,
+            purpose: h.purposeOfListing || 'Hearing',
+            result: h.hearingDate ? `Next: ${h.hearingDate}` : 'Disposed',
+            judge: h.judge || ''
+        }));
+
+        // 3. Update in Supabase
         const supabase = getClient();
-        const { data, error } = await supabase
-            .from('cases')
-            .update({
-                next_hearing: nextH,
-                purpose: purpose,
-                case_status: courtData.caseStatus,
-                ecourts_last_sync: new Date().toISOString()
-            })
-            .eq('id', caseId)
-            .select()
-            .single();
+        const updateData = {
+            next_hearing: nextHearing,
+            case_status: caseStatus,
+            ecourts_last_sync: new Date().toISOString(),
+            hearing_history: hearingHistory,
+        };
 
-        if (error) throw error;
+        // Only update if we have a caseId to update
+        if (caseId) {
+            const { data, error } = await supabase
+                .from('cases')
+                .update(updateData)
+                .eq('id', caseId)
+                .select()
+                .single();
 
-        return res.json({ 
-            success: true, 
-            updated: data, 
-            raw: courtData,
-            message: `Case synchronized successfully. Next date: ${nextH || 'Not Announced'}` 
+            if (error) throw error;
+
+            return res.json({
+                success: true,
+                updated: data,
+                message: `✅ Synced from eCourts. Status: ${caseStatus}. Next: ${nextHearing || 'Not announced'}. ${hearingHistory.length} hearing records imported.`
+            });
+        }
+
+        // If no caseId, just return the raw data for preview
+        return res.json({
+            success: true,
+            preview: {
+                caseType: courtData.caseTypeRaw || courtData.caseType,
+                caseNo: courtData.filingNumber,
+                petitioners: courtData.petitioners,
+                respondents: courtData.respondents,
+                court: result.data?.descriptions?.enumLookup?.courtCode?.[courtData.cnrCourtCode] || courtData.courtName,
+                status: caseStatus,
+                nextHearing,
+                lastHearing,
+                judges,
+                hearingCount: courtData.hearingCount,
+                orderCount: courtData.orderCount,
+                hearingHistory
+            },
+            message: `eCourts data fetched. ${courtData.petitioners?.[0] || ''} vs ${courtData.respondents?.[0] || ''}`
         });
-        
+
     } catch (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Bridge to eCourtsIndia failed. Check CNR and API Token." });
+        console.error('eCourts sync error:', err);
+        return res.status(500).json({ error: err.message || "Bridge to eCourts India failed." });
     }
 };
