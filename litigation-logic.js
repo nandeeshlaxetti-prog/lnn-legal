@@ -1,52 +1,50 @@
 // ============================================================
-// LNN LEGAL — DIGITAL BRIEFCASE v4.0.0 (MASTER BUILD)
+// LNN LEGAL — DIGITAL BRIEFCASE v1.2.0 (STABLE)
 // ============================================================
-console.log('LNN_MASTER: Synchronizing Corporate Litigation Engine...');
-
 const DB = { tasks: [], members: [], cases: [] };
-let currentCaseInView = null; 
+
+let currentCaseInView = null; // Track current case for global listeners
 
 // ============================================================
-// API LAYER — Global Dispatcher
+// API LAYER — calls Vercel serverless functions
 // ============================================================
 const API = {
     async request(url, options = {}) {
-        try {
-            const res = await fetch(url, {
-                headers: { 'Content-Type': 'application/json' },
-                ...options,
-                body: options.body ? JSON.stringify(options.body) : undefined
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || `HTTP ${res.status}`);
-            }
-            return res.json();
-        } catch (e) {
-            console.error(`LNN_API_ERROR [${url}]:`, e);
-            throw e;
+        const res = await fetch(url, {
+            headers: { 'Content-Type': 'application/json' },
+            ...options,
+            body: options.body ? JSON.stringify(options.body) : undefined
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${res.status}`);
         }
+        return res.json();
     },
+
     getTasks() { return this.request('/api/tasks'); },
-    getCases() { return this.request('/api/cases'); },
-    getMembers() { return this.request('/api/members'); },
-    getLogs(id) { return this.request(`/api/logs?taskId=${id}`); },
-    loginUser(data) { return this.request('/api/login', { method: 'POST', body: data }); },
-    uploadFile(data) { return this.request('/api/upload', { method: 'POST', body: data }); },
-    getSignUrl(data) { return this.request('/api/upload-url', { method: 'POST', body: data }); },
-    updateTask(id, data) { return this.request(`/api/tasks?id=${id}`, { method: 'PUT', body: data }); },
-    updateCase(id, data) { return this.request(`/api/cases?id=${id}`, { method: 'PUT', body: data }); },
-    deleteTask(id) { return this.request(`/api/tasks?id=${id}`, { method: 'DELETE' }); },
-    deleteCase(id) { return this.request(`/api/cases?id=${id}`, { method: 'DELETE' }); },
     createTask(data) { return this.request('/api/tasks', { method: 'POST', body: data }); },
+    updateTask(id, data) { return this.request(`/api/tasks?id=${id}`, { method: 'PUT', body: data }); },
+    deleteTask(id) { return this.request(`/api/tasks?id=${id}`, { method: 'DELETE' }); },
+
+    getCases() { return this.request('/api/cases'); },
     createCase(data) { return this.request('/api/cases', { method: 'POST', body: data }); },
+    updateCase(id, data) { return this.request(`/api/cases?id=${id}`, { method: 'PUT', body: data }); },
+    deleteCase(id) { return this.request(`/api/cases?id=${id}`, { method: 'DELETE' }); },
+
+    getMembers() { return this.request('/api/members'); },
     createMember(data) { return this.request('/api/members', { method: 'POST', body: data }); },
     updateMember(id, data) { return this.request(`/api/members?id=${id}`, { method: 'PUT', body: data }); },
-    deleteMember(id) { return this.request(`/api/members?id=${id}`, { method: 'DELETE' }); }
+    deleteMember(id) { return this.request(`/api/members?id=${id}`, { method: 'DELETE' }); },
+
+    uploadFile(data) { return this.request('/api/upload', { method: 'POST', body: data }); },
+    getSignUrl(data) { return this.request('/api/upload-url', { method: 'POST', body: data }); },
+    getLogs(id) { return this.request(`/api/logs?taskId=${id}`); },
+    loginUser(data) { return this.request('/api/login', { method: 'POST', body: data }); }
 };
 
 // ============================================================
-// UTILITIES & CONSTANTS
+// CONSTANTS
 // ============================================================
 const STAGES = ['Reading/Brief', 'Research', 'Drafting', 'Review', 'Client Response', 'Filing', 'Pending Works', 'Completed'];
 const STAGE_META = {
@@ -65,14 +63,20 @@ const PRIORITY_META = {
     low: { cls: 'pill-low', color: '#10b981', label: '🟢 Low' },
 };
 
+// ============================================================
+// UTILITIES
+// ============================================================
 function fmtDate(d) { return d.toISOString().split('T')[0]; }
 function today() { return fmtDate(new Date()); }
 function initials(name) { return (name || '??').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2); }
+// GET ASSIGNEE FROM TASK (Snake and Camel support)
 function getMemberFromTask(t) {
     const id = t.assigneeId || t.assignee_id || '';
     return DB.members.find(m => m.id === id) || { name: 'Unassigned', id: '' };
 }
-function getMember(id) { return DB.members.find(m => m.id === id) || { name: 'Unassigned', id: '' }; }
+function getMember(id) { 
+    return DB.members.find(m => m.id === id) || { name: 'Unassigned', id: '' }; 
+}
 function dueStatus(due) {
     if (!due) return 'none';
     const diff = Math.ceil((new Date(due) - new Date(today())) / 86400000);
@@ -87,93 +91,94 @@ function dueTxt(due) {
     if (diff === 0) return 'Due today';
     return due;
 }
-function esc(str) { return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-
-function showToast(msg, type = 'success', diagnostic = false) {
-    const t = document.getElementById('toast');
-    if (!t) { alert(msg); return; } 
-    t.innerHTML = msg + (diagnostic ? ` <button onclick="runDiagnostic()" style="background:rgba(255,255,255,0.2); border:1px solid white; color:white; padding:4px 8px; border-radius:4px; font-size:10px; cursor:pointer; margin-left:10px">🔍 Diagnostic</button>` : '');
-    t.className = `toast show ${type}`;
-    clearTimeout(t._timer);
-    if (!diagnostic) t._timer = setTimeout(() => t.className = 'toast', 2800);
+function esc(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-async function runDiagnostic() {
-    showToast('🚨 Executing Cloud Diagnostic...', 'info');
-    try {
-        const res = await fetch('/api/health');
-        const data = await res.json();
-        const report = Object.entries(data.report).map(([k, v]) => `${k.toUpperCase()}: ${v}`).join('\n');
-        alert('LNN LEGAL - CLOUD DIAGNOSTIC REPORT\n====================================\n\n' + report + '\n\nVerify these in your Vercel Project Settings.');
-    } catch (err) { alert('Diagnostic Failed: Unable to reach Cloud Responder.'); }
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast show ${type}`;
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.className = 'toast', 2800);
 }
 
 function setLoading(on) {
     const el = document.getElementById('loading-overlay');
     if (!el) return;
-    if (on) { 
-        el.classList.remove('hidden'); el.style.display = 'flex'; el.style.opacity = '1';
+    if (on) {
+        el.classList.remove('hidden');
+        el.style.opacity = '1';
+        el.style.pointerEvents = 'all';
     } else {
-        el.classList.add('hidden'); el.style.opacity = '0';
+        el.classList.add('hidden');
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
         setTimeout(() => { if (el.style.opacity === '0') el.style.display = 'none'; }, 400);
     }
 }
 
 let windowCurrentUserLevel = 'admin';
+
 function applyRoleRestrictions() {
     const user = localStorage.getItem('lnn_auth_user') || '';
     const profile = DB.members.find(m => (m.username || '').toLowerCase() === user.toLowerCase());
     const role = profile ? (profile.role || '').toLowerCase() : '';
-    windowCurrentUserLevel = profile && (role.includes('admin') || role.includes('partner')) ? 'admin' : (role.includes('intern') || role.includes('clerk') ? 'intern' : 'associate');
+
+    if (!profile || role.includes('admin') || role.includes('partner')) windowCurrentUserLevel = 'admin';
+    else if (role.includes('intern') || role.includes('clerk')) windowCurrentUserLevel = 'intern';
+    else windowCurrentUserLevel = 'associate';
+
     document.body.className = `role-${windowCurrentUserLevel}`;
-    const roleEl = document.querySelector('.user-role'); if (roleEl) roleEl.textContent = profile ? (profile.role || 'Member') : 'Super Admin (Unpaired)';
-    const nameEl = document.getElementById('current-user-name'); const avEl = document.getElementById('current-user-avatar');
-    if (nameEl) { nameEl.textContent = profile ? profile.name : user; avEl.textContent = initials(profile ? profile.name : user); }
-    
-    // AI Status Light Update
-    fetch('/api/health').then(r => r.json()).then(data => {
-        const dot = document.getElementById('ai-status-dot');
-        const txt = document.getElementById('ai-status-text');
-        if (dot && txt) {
-            if (data.report.gemini_ai.includes('✅')) {
-                dot.style.background = '#10b981'; txt.textContent = 'Intelligence Link: operational 🟢';
-            } else {
-                dot.style.background = '#f59e0b'; txt.textContent = 'Intelligence Link: Pending Connection... 🟠';
-            }
-        }
-    }).catch(() => {});
+
+    const roleEl = document.querySelector('.user-role');
+    if (roleEl) {
+        roleEl.textContent = profile ? (profile.role || 'Member') : 'Super Admin (Unpaired)';
+    }
+
+    const nameEl = document.getElementById('current-user-name');
+    const avEl = document.getElementById('current-user-avatar');
+    if (nameEl) {
+        nameEl.textContent = profile ? profile.name : user;
+        avEl.textContent = initials(profile ? profile.name : user);
+    }
 }
 
+// ============================================================
+// FETCH ALL DATA
+// ============================================================
 async function fetchAll() {
     const [tasks, members, cases] = await Promise.all([
-        API.getTasks(), API.getMembers(), API.getCases().catch(() => [])
+        API.getTasks(), 
+        API.getMembers(),
+        API.getCases().catch(() => []) // Handle cases as separate aspect
     ]);
-    DB.tasks = tasks; DB.members = members; DB.cases = cases;
+    DB.tasks = tasks;
+    DB.members = members;
+    DB.cases = cases;
     applyRoleRestrictions();
 }
 
+// ============================================================
+// AUTO REFRESH every 30s (catches changes from other users)
+// ============================================================
 function startAutoRefresh() {
     setInterval(async () => {
-        try { await fetchAll(); renderPage(currentPage); refreshAssigneeSelects(); } catch (e) {}
+        try {
+            await fetchAll();
+            renderPage(currentPage);
+            refreshAssigneeSelects();
+            document.getElementById('last-sync').textContent = 'Synced ' + new Date().toLocaleTimeString();
+        } catch (e) { /* silent */ }
     }, 30000);
 }
 
 function refreshAssigneeSelects() {
-    populateAssigneeSelect('task-assignee', document.getElementById('task-assignee').value);
+    const taskSel = document.getElementById('task-assignee');
+    const curTask = taskSel.value;
+    populateAssigneeSelect('task-assignee', curTask);
     populateAssigneeFilter('board-filter-assignee', document.getElementById('board-filter-assignee').value);
     populateAssigneeFilter('tasks-filter-assignee', document.getElementById('tasks-filter-assignee').value);
-}
-
-function populateAssigneeSelect(id, current) {
-    const el = document.getElementById(id); if (!el) return;
-    el.innerHTML = '<option value="">Select Assignee</option>' + 
-        DB.members.map(m => `<option value="${m.id}" ${m.id === current ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
-}
-
-function populateAssigneeFilter(id, current) {
-    const el = document.getElementById(id); if (!el) return;
-    el.innerHTML = '<option value="all">All Members</option>' + 
-        DB.members.map(m => `<option value="${m.id}" ${m.id === current ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
 }
 
 // ============================================================
@@ -183,10 +188,16 @@ let currentPage = 'dashboard';
 function showPage(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    const pageEl = document.getElementById(`page-${page}`); if (pageEl) pageEl.classList.add('active');
+    
+    const pageEl = document.getElementById(`page-${page}`);
+    if (pageEl) pageEl.classList.add('active');
+    
     document.getElementById(`nav-${page}`)?.classList.add('active');
-    document.getElementById('page-title').textContent = { dashboard: 'Dashboard', board: 'Work Board', cases: 'Cases', tasks: 'All Tasks', team: 'Team', 'case-detail': 'Case File' }[page] || 'Legal Management';
-    currentPage = page; renderPage(page);
+    document.getElementById('page-title').textContent =
+        { dashboard: 'Dashboard', board: 'Work Board', cases: 'Cases', tasks: 'All Tasks', team: 'Team', 'case-detail': 'Case File' }[page] || 'Legal Management';
+    
+    currentPage = page;
+    renderPage(page);
     if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
 }
 function renderPage(page) {
@@ -202,60 +213,99 @@ function renderPage(page) {
 // ============================================================
 function renderDashboard() {
     const tasks = DB.tasks;
-    document.getElementById('stat-total').textContent = tasks.length;
-    document.getElementById('stat-pending').textContent = tasks.filter(t => t.stage === 'Pending Works').length;
-    document.getElementById('stat-completed').textContent = tasks.filter(t => t.stage === 'Completed').length;
-    document.getElementById('stat-overdue').textContent = tasks.filter(t => dueStatus(t.due) === 'overdue' && t.stage !== 'Completed').length;
+    const total = tasks.length;
+    const pending = tasks.filter(t => t.stage === 'Pending Works').length;
+    const completed = tasks.filter(t => t.stage === 'Completed').length;
+    const overdue = tasks.filter(t => dueStatus(t.due) === 'overdue' && t.stage !== 'Completed').length;
 
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-pending').textContent = pending;
+    document.getElementById('stat-completed').textContent = completed;
+    document.getElementById('stat-overdue').textContent = overdue;
+
+    // Recent tasks
     const recentList = document.getElementById('recent-tasks-list');
-    recentList.innerHTML = tasks.slice(0, 6).map(t => {
+    const recent = tasks.slice(0, 6);
+    recentList.innerHTML = recent.map(t => {
         const sm = STAGE_META[t.stage] || {};
         return `<div class="task-list-item" onclick="openDetail('${t.id}')">
-            <div class="tli-info"><div class="tli-title">${esc(t.title)}</div><div class="tli-meta">Office Action</div></div>
-            <span class="tli-stage ${sm.cls}">${t.stage}</span>
-        </div>`;
-    }).join('') || '<p style="text-align:center;padding:20px;color:var(--text-muted)">Project Workspace is empty.</p>';
+      <div class="tli-info">
+        <div class="tli-title">${esc(t.title)}</div>
+        <div class="tli-meta">Office Task</div>
+      </div>
+      <span class="tli-stage ${sm.cls}">${t.stage}</span>
+    </div>`;
+    }).join('') || '<p style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px">No tasks yet. Click + New Task to start.</p>';
 
+    // Team workload
     const wl = document.getElementById('workload-list');
-    const maxT = Math.max(...DB.members.map(m => tasks.filter(t => t.assigneeId === m.id && t.stage !== 'Completed').length), 1);
-    wl.innerHTML = DB.members.map(m => {
-        const c = tasks.filter(t => t.assigneeId === m.id && t.stage !== 'Completed').length;
-        return `<div class="workload-item">
-            <div class="workload-label"><span class="workload-name">${esc(m.name)}</span><span class="workload-count">${c} active</span></div>
-            <div class="workload-bar"><div class="workload-fill" style="width:${Math.round((c/maxT)*100)}%"></div></div>
-        </div>`;
-    }).join('');
+    const maxTasks = Math.max(...DB.members.map(m => tasks.filter(t => t.assigneeId === m.id && t.stage !== 'Completed').length), 1);
+    wl.innerHTML = DB.members.length === 0
+        ? '<p style="color:var(--text-muted);font-size:13px">No team members yet.</p>'
+        : DB.members.map(m => {
+            const count = tasks.filter(t => t.assigneeId === m.id && t.stage !== 'Completed').length;
+            const pct = Math.round((count / maxTasks) * 100);
+            return `<div class="workload-item">
+        <div class="workload-label">
+          <span class="workload-name">${esc(m.name)}</span>
+          <span class="workload-count">${count} tasks</span>
+        </div>
+        <div class="workload-bar"><div class="workload-fill" style="width:${pct}%"></div></div>
+      </div>`;
+        }).join('');
 
+    // Stage overview
     const so = document.getElementById('stage-overview');
     so.innerHTML = STAGES.map(s => {
-        const c = tasks.filter(t => t.stage === s).length; const sm = STAGE_META[s];
+        const count = tasks.filter(t => t.stage === s).length;
+        const sm = STAGE_META[s];
         return `<div class="stage-ov-item">
-            <div class="stage-ov-count" style="color:${sm.dot}">${c}</div>
-            <div class="stage-ov-label">${s}</div>
-            <div class="stage-ov-bar" style="background:${sm.dot}"></div>
-        </div>`;
+      <div class="stage-ov-count" style="color:${sm.dot}">${count}</div>
+      <div class="stage-ov-label">${s}</div>
+      <div class="stage-ov-bar" style="background:${sm.dot}"></div>
+    </div>`;
     }).join('');
+
     renderCauseList();
 }
 
+// CAUSE LIST COMPONENT (Dashboard only)
 function renderCauseList() {
-    const inputD = document.getElementById('cl-date-picker').value || today();
+    const picker = document.getElementById('cl-date-picker');
+    const inputDate = picker.value || today();
     const container = document.getElementById('cause-list-container');
-    const hearings = DB.cases.filter(c => c.next_hearing === inputD);
-    document.getElementById('cl-date-label').textContent = inputD === today() ? 'Today' : inputD;
-    if (hearings.length === 0) { container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-secondary)">No hearings listed.</div>`; return; }
+    const hearings = DB.cases.filter(c => c.next_hearing === inputDate);
     
-    const groups = {}; hearings.forEach(h => { const k = h.court_name || 'Others'; if (!groups[k]) groups[k] = []; groups[k].push(h); });
+    document.getElementById('cl-date-label').textContent = inputDate === today() ? 'Today' : inputDate;
+    
+    if (hearings.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-secondary); border:1px dashed var(--border); border-radius:8px">No hearings scheduled for this date.</div>`;
+        return;
+    }
+
+    // Group by Court
+    const groups = {};
+    hearings.forEach(h => {
+        const key = h.court_name || 'Court Not Specified';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(h);
+    });
+
     container.innerHTML = Object.entries(groups).map(([court, list]) => `
         <div class="diary-group">
             <div class="diary-group-header">📍 ${esc(court)}</div>
             ${list.map(c => `
-                <div class="diary-item" onclick="openCaseFile('${c.id}')">
+                <div class="diary-item" onclick="openCaseFile('${c.id}')" style="cursor:pointer">
                     <div class="diary-info">
-                        <div style="font-weight:700">${esc(c.case_type)} No. ${c.case_no}/${c.case_year}</div>
-                        <div style="font-size:12px">${esc(c.petitioner)} vs ${esc(c.respondent)}</div>
+                        <div style="font-weight:700; font-size:14px">${esc(c.case_type)} No. ${c.case_no}/${c.case_year}</div>
+                        <div style="font-size:12px; color:var(--text-secondary)">${esc(c.petitioner)} vs ${esc(c.respondent)}</div>
                     </div>
-                    <div class="legal-chip" style="font-size:10px">${esc(c.purpose || 'Hearing')}</div>
+                    <div style="text-align:right">
+                        <div class="legal-chip" style="font-size:11px; margin-bottom:4px">
+                            <span class="chip-label">Purpose:</span>
+                            <span class="chip-value" style="font-size:11px">${esc(c.purpose || 'Hearing')}</span>
+                        </div>
+                   </div>
                 </div>
             `).join('')}
         </div>
@@ -266,56 +316,86 @@ function renderCauseList() {
 // KANBAN BOARD
 // ============================================================
 let draggedTaskId = null;
+
 function renderBoard() {
-    const aF = document.getElementById('board-filter-assignee').value;
-    const pF = document.getElementById('board-filter-priority').value;
+    const assigneeFilter = document.getElementById('board-filter-assignee').value;
+    const priorityFilter = document.getElementById('board-filter-priority').value;
+    populateAssigneeFilter('board-filter-assignee', assigneeFilter);
+
     let tasks = DB.tasks;
-    if (aF !== 'all') tasks = tasks.filter(t => t.assigneeId === aF);
-    if (pF !== 'all') tasks = tasks.filter(t => t.priority === pF);
-    const board = document.getElementById('kanban-board'); board.innerHTML = '';
+    if (assigneeFilter !== 'all') tasks = tasks.filter(t => t.assigneeId === assigneeFilter);
+    if (priorityFilter !== 'all') tasks = tasks.filter(t => t.priority === priorityFilter);
+
+    const board = document.getElementById('kanban-board');
+    board.innerHTML = '';
+
     STAGES.forEach(stage => {
-        const sm = STAGE_META[stage]; const staged = tasks.filter(t => t.stage === stage);
-        const col = document.createElement('div'); col.className = 'kanban-col';
+        const sm = STAGE_META[stage];
+        const staged = tasks.filter(t => t.stage === stage);
+
+        const col = document.createElement('div');
+        col.className = 'kanban-col';
         col.innerHTML = `
-            <div class="kanban-col-header"><div class="col-title"><span class="col-dot" style="background:${sm.dot}"></span>${stage}</div><span class="col-count">${staged.length}</span></div>
-            <div class="kanban-cards" data-stage="${stage}"></div>`;
+      <div class="kanban-col-header">
+        <div class="col-title"><span class="col-dot" style="background:${sm.dot}"></span>${stage}</div>
+        <span class="col-count">${staged.length}</span>
+      </div>
+      <div class="kanban-cards" data-stage="${stage}"></div>`;
+
         const cardsEl = col.querySelector('.kanban-cards');
         staged.forEach(task => cardsEl.appendChild(buildKCard(task)));
+
         cardsEl.addEventListener('dragover', e => { e.preventDefault(); cardsEl.classList.add('drag-over'); });
         cardsEl.addEventListener('dragleave', () => cardsEl.classList.remove('drag-over'));
         cardsEl.addEventListener('drop', async e => {
-            e.preventDefault(); cardsEl.classList.remove('drag-over'); if (!draggedTaskId) return;
-            const newS = cardsEl.dataset.stage; const task = DB.tasks.find(t => t.id === draggedTaskId);
-            if (task && task.stage !== newS) {
-                task.stage = newS; renderBoard();
+            e.preventDefault();
+            cardsEl.classList.remove('drag-over');
+            if (!draggedTaskId) return;
+            const newStage = cardsEl.dataset.stage;
+            const task = DB.tasks.find(t => t.id === draggedTaskId);
+            if (task && task.stage !== newStage) {
+                task.stage = newStage; // optimistic
+                renderBoard();
                 try {
-                    await API.updateTask(draggedTaskId, { stage: newS, _userName: document.getElementById('current-user-name').textContent });
-                    showToast(`Moved to "${newS}"`); await fetchAll(); renderPage(currentPage);
-                } catch (err) { showToast('Sync failed', 'error'); await fetchAll(); renderBoard(); }
+                    await API.updateTask(draggedTaskId, { stage: newStage, _userName: document.getElementById('current-user-name').textContent });
+                    showToast(`Moved to "${newStage}"`, 'success');
+                    await fetchAll(); renderPage(currentPage);
+                } catch (err) { showToast('Failed to update stage', 'error'); await fetchAll(); renderBoard(); }
             }
             draggedTaskId = null;
         });
+
         board.appendChild(col);
     });
 }
+
 function buildKCard(task) {
-    const member = getMemberFromTask(task); const ds = dueStatus(task.due); const pm = PRIORITY_META[task.priority] || PRIORITY_META.medium;
-    const card = document.createElement('div'); card.className = 'kcard'; card.draggable = true;
+    const member = getMemberFromTask(task);
+    const ds = dueStatus(task.due);
+    const pm = PRIORITY_META[task.priority] || PRIORITY_META.medium;
+
+    const card = document.createElement('div');
+    card.className = 'kcard';
+    card.draggable = true;
     card.innerHTML = `
-        <div class="kcard-priority-bar" style="background:${pm.color}"></div>
-        <div class="kcard-title">${esc(task.title)}</div>
-        ${task.client ? `<div class="kcard-client">${esc(task.client)}${task.caseNo ? ' · ' + esc(task.caseNo) : ''}</div>` : ''}
-        <div class="kcard-footer">
-            <div class="kcard-assignee"><div class="kcard-avatar">${initials(member.name)}</div>${esc(member.name.split(' ')[0])}</div>
-            ${task.due ? `<span class="kcard-due ${ds}">${dueTxt(task.due)}</span>` : ''}
-        </div>
-        <div class="kcard-actions">
-            <button onclick="openDetail('${task.id}')">View</button>
-            <button class="associate-plus" onclick="openTaskModal('${task.id}')">Edit</button>
-        </div>`;
-    card.addEventListener('dragstart', (e) => { 
+    <div class="kcard-priority-bar" style="background:${pm.color}"></div>
+    <div class="kcard-title">${esc(task.title)}</div>
+    ${task.client ? `<div class="kcard-client">${esc(task.client)}${task.caseNo ? ' · ' + esc(task.caseNo) : ''}</div>` : ''}
+    <div class="kcard-footer">
+      <div class="kcard-assignee">
+        <div class="kcard-avatar">${initials(member.name)}</div>
+        ${esc(member.name.split(' ')[0])}
+      </div>
+      ${task.due ? `<span class="kcard-due ${ds}">${dueTxt(task.due)}</span>` : ''}
+    </div>
+    <div class="kcard-actions">
+      <button class="kcard-btn" onclick="openDetail('${task.id}')">👁 View</button>
+      <button class="kcard-btn associate-plus" onclick="openTaskModal('${task.id}')">✏️ Edit</button>
+      <button class="kcard-btn admin-only" onclick="deleteTask('${task.id}')">🗑 Delete</button>
+    </div>`;
+    card.addEventListener('dragstart', (e) => {
         if (windowCurrentUserLevel === 'intern') return e.preventDefault();
-        draggedTaskId = task.id; card.classList.add('dragging'); 
+        draggedTaskId = task.id; card.classList.add('dragging');
     });
     card.addEventListener('dragend', () => card.classList.remove('dragging'));
     return card;
@@ -325,292 +405,1179 @@ function buildKCard(task) {
 // ALL TASKS TABLE
 // ============================================================
 function renderTasks() {
-    const sF = document.getElementById('tasks-filter-stage').value;
-    const aF = document.getElementById('tasks-filter-assignee').value;
-    const pF = document.getElementById('tasks-filter-priority').value;
-    const sV = document.getElementById('search-input').value.toLowerCase();
+    const stageFilter = document.getElementById('tasks-filter-stage').value;
+    const assigneeFilter = document.getElementById('tasks-filter-assignee').value;
+    const priorityFilter = document.getElementById('tasks-filter-priority').value;
+    const searchVal = document.getElementById('search-input').value.toLowerCase();
+    populateAssigneeFilter('tasks-filter-assignee', assigneeFilter);
+
     let tasks = DB.tasks;
-    if (sF !== 'all') tasks = tasks.filter(t => t.stage === sF);
-    if (aF !== 'all') tasks = tasks.filter(t => t.assigneeId === aF);
-    if (pF !== 'all') tasks = tasks.filter(t => t.priority === pF);
-    if (sV) tasks = tasks.filter(t => (t.title || '').toLowerCase().includes(sV) || (t.client || '').toLowerCase().includes(sV));
+    if (stageFilter !== 'all') tasks = tasks.filter(t => t.stage === stageFilter);
+    if (assigneeFilter !== 'all') tasks = tasks.filter(t => t.assigneeId === assigneeFilter);
+    if (priorityFilter !== 'all') tasks = tasks.filter(t => t.priority === priorityFilter);
+    if (searchVal) tasks = tasks.filter(t =>
+        (t.title || '').toLowerCase().includes(searchVal) ||
+        (t.client || '').toLowerCase().includes(searchVal) ||
+        (t.caseNo || '').toLowerCase().includes(searchVal) ||
+        (t.cnr || '').toLowerCase().includes(searchVal)
+    );
+
     const tbody = document.getElementById('tasks-table-body');
+    const empty = document.getElementById('tasks-empty');
+    const table = document.getElementById('tasks-table');
+
+    if (tasks.length === 0) {
+        tbody.innerHTML = '';
+        table.style.display = 'none';
+        empty.style.display = 'flex'; empty.style.flexDirection = 'column'; empty.style.alignItems = 'center';
+        return;
+    }
+    table.style.display = ''; empty.style.display = 'none';
+
     tbody.innerHTML = tasks.map(t => {
-        const member = getMember(t.assigneeId); const sm = STAGE_META[t.stage] || {}; const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
+        const member = getMember(t.assigneeId);
+        const sm = STAGE_META[t.stage] || {};
+        const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
+        const ds = dueStatus(t.due);
         return `<tr onclick="openDetail('${t.id}')">
-            <td class="td-title"><div>${esc(t.title)}</div></td>
-            <td><div class="assignee-chip"><div class="chip-av">${initials(member.name)}</div>${esc(member.name)}</div></td>
-            <td><span class="stage-badge ${sm.cls}">${t.stage}</span></td>
-            <td><span class="priority-pill ${pm.cls}">${pm.label}</span></td>
-            <td>${dueTxt(t.due)}</td>
-            <td onclick="event.stopPropagation()">
-                <button class="action-btn associate-plus" onclick="openTaskModal('${t.id}')">✏️</button>
-                <button class="action-btn admin-only" onclick="deleteTask('${t.id}')">🗑️</button>
+      <td class="td-title">
+        <div>${esc(t.title)}</div>
+        ${t.client || t.caseNo ? `<div class="td-sub">${t.client ? esc(t.client) : ''}${t.caseNo ? ' · ' + esc(t.caseNo) : ''}</div>` : ''}
+      </td>
+      <td><div class="assignee-chip"><div class="chip-av">${initials(member.name)}</div>${esc(member.name)}</div></td>
+      <td><span class="stage-badge ${sm.cls}">${t.stage}</span></td>
+      <td><span class="priority-pill ${pm.cls}">${pm.label}</span></td>
+      <td><span class="due-text ${ds !== 'none' ? ds : ''}">${dueTxt(t.due)}</span></td>
+      <td onclick="event.stopPropagation()">
+        <button class="action-btn associate-plus" title="Edit"   onclick="openTaskModal('${t.id}')">✏️</button>
+        <button class="action-btn admin-only" title="Delete" onclick="deleteTask('${t.id}')">🗑️</button>
+      </td>
+    </tr>`;
+    }).join('');
+}
+
+// ============================================================
+// CASES PAGE (Case Management)
+// ============================================================
+function renderCases() {
+    const searchVal = document.getElementById('cases-search-input').value.toLowerCase();
+    const cases = DB.cases;
+
+    const displayCases = cases.filter(c => 
+        (c.case_type || '').toLowerCase().includes(searchVal) ||
+        (c.case_no || '').toLowerCase().includes(searchVal) ||
+        (c.petitioner || '').toLowerCase().includes(searchVal) ||
+        (c.respondent || '').toLowerCase().includes(searchVal)
+    );
+
+    const tbody = document.getElementById('cases-table-body');
+    const empty = document.getElementById('cases-empty');
+    if (displayCases.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'flex';
+        return;
+    }
+    empty.style.display = 'none';
+
+    tbody.innerHTML = displayCases.map(c => {
+        const partner = DB.members.find(m => m.id === c.partner_id) || { name: '—' };
+        const fullNo = `${c.case_type} No. ${c.case_no}/${c.case_year}`;
+        const pType = (c.petitioner_type || 'Petitioner').charAt(0);
+        const rType = (c.respondent_type || 'Respondent').charAt(0);
+        
+        return `<tr>
+            <td class="td-title">
+                <div>${esc(fullNo)}</div>
+                <div class="td-sub">${esc(c.petitioner)} vs ${esc(c.respondent)}</div>
+            </td>
+            <td>
+                <div>${pType}: ${esc(c.petitioner || '—')}</div>
+                <div class="td-sub">${rType}: ${esc(c.respondent || '—')}</div>
+            </td>
+            <td>${esc(c.court_name || '—')}</td>
+            <td>${esc(partner.name)}</td>
+            <td>
+                <button class="btn-primary" style="padding:4px 12px;font-size:12px" onclick="openCaseFile('${c.id}')">📂 View File</button>
+                <button class="action-btn" onclick="openCaseModal('${c.id}')" title="Edit Properties">✏️</button>
             </td>
         </tr>`;
     }).join('');
 }
 
 // ============================================================
-// CASES PAGE
+// TEAM PAGE
 // ============================================================
-function renderCases() {
-    const sV = document.getElementById('cases-search-input').value.toLowerCase();
-    const tbody = document.getElementById('cases-table-body');
-    const display = DB.cases.filter(c => (c.case_no || '').includes(sV) || (c.petitioner || '').toLowerCase().includes(sV));
-    document.getElementById('cases-empty').style.display = display.length === 0 ? 'flex' : 'none';
-    tbody.innerHTML = display.map(c => `
-        <tr>
-            <td class="td-title">
-                <div>${esc(c.case_type)} No. ${c.case_no}/${c.case_year}</div>
-                <div class="td-sub">${esc(c.petitioner)} vs ${esc(c.respondent)}</div>
-            </td>
-            <td>${esc(c.court_name)}</td>
-            <td>${esc(getMember(c.partner_id).name)}</td>
-            <td>
-                <button class="btn-primary" style="padding:4px 12px; font-size:12px" onclick="openCaseFile('${c.id}')">📂 Dossier</button>
-                <button class="action-btn" onclick="openCaseModal('${c.id}')">✏️</button>
-            </td>
-        </tr>
-    `).join('');
-}
-
 function renderTeam() {
-    document.getElementById('team-grid').innerHTML = DB.members.map(m => `
-        <div class="member-card">
-            <div class="member-av">${initials(m.name)}</div>
-            <div class="member-name">${esc(m.name)}</div>
-            <div class="member-role">${esc(m.role)}</div>
-            <div class="member-stats">
-              <div class="mstat"><div class="mstat-val" style="color:#6366f1">${DB.tasks.filter(t => t.assigneeId === m.id && t.stage !== 'Completed').length}</div><div class="mstat-lbl">Active</div></div>
-            </div>
-            <div class="admin-only" style="margin-top:10px; display:flex; gap:8px; justify-content:center">
-                <button class="action-btn" onclick="openMemberModal('${m.id}')">✏️</button>
-                <button class="member-delete" style="position:static" onclick="deleteMember('${m.id}')">✕</button>
-            </div>
-        </div>
-    `).join('');
+    const grid = document.getElementById('team-grid');
+    if (DB.members.length === 0) {
+        grid.innerHTML = '<p style="color:var(--text-muted);font-size:14px;padding:20px">No members yet. Click + Add Member to begin.</p>';
+        return;
+    }
+    grid.innerHTML = DB.members.map(m => {
+        const active = DB.tasks.filter(t => t.assigneeId === m.id && t.stage !== 'Completed').length;
+        const completed = DB.tasks.filter(t => t.assigneeId === m.id && t.stage === 'Completed').length;
+        return `<div class="member-card">
+      <div class="member-actions admin-only" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px">
+          <button class="action-btn" onclick="openMemberModal('${m.id}')" title="Edit Profile">✏️</button>
+          <button class="member-delete" style="position:static" onclick="deleteMember('${m.id}')" title="Remove Member">✕</button>
+      </div>
+      <div class="member-av">${initials(m.name)}</div>
+      <div class="member-name">${esc(m.name)}</div>
+      <div class="member-role">${esc(m.role || '—')}</div>
+      ${m.email ? `<div class="member-email" style="font-weight:600;margin-top:4px">✉️ ${esc(m.email)}</div>` : ''}
+      ${m.phone ? `<div class="member-email" style="font-weight:600;color:var(--text-primary)">📱 ${esc(m.phone)}</div>` : ''}
+      <div class="member-stats">
+        <div class="mstat"><div class="mstat-val" style="color:#6366f1">${active}</div><div class="mstat-lbl">Active</div></div>
+        <div class="mstat"><div class="mstat-val" style="color:#10b981">${completed}</div><div class="mstat-lbl">Done</div></div>
+      </div>
+    </div>`;
+    }).join('');
 }
 
 // ============================================================
-// MODALS
+// TASK MODAL
 // ============================================================
-async function openDetail(id) {
-    const t = DB.tasks.find(x => x.id === id); if (!t) return;
-    const member = getMember(t.assigneeId); const sm = STAGE_META[t.stage] || {}; const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
-    document.getElementById('detail-title').textContent = t.title;
-    document.getElementById('detail-body').innerHTML = `
-        <div class="detail-grid" style="grid-template-columns:1fr 1fr; gap:12px">
-            <div class="detail-field"><label>Action</label><p>${esc(t.title)}</p></div>
-            <div class="detail-field"><label>Assignee</label><p>${esc(member.name)}</p></div>
-            <div class="detail-field"><label>Stage</label><p><span class="stage-badge ${sm.cls}">${t.stage}</span></p></div>
-            <div class="detail-field"><label>Priority</label><p><span class="priority-pill ${pm.cls}">${pm.label}</span></p></div>
-        </div>
-        <div style="margin-top:16px"><label>Briefing / Notes</label><div class="detail-notes">${esc(t.notes || 'No notes.')}</div></div>
-        <div class="modal-actions" style="margin-top:20px"><button class="btn-secondary" onclick="closeModal('detail-modal-overlay')">Close</button></div>`;
-    openModal('detail-modal-overlay');
-}
+let currentTaskAttachments = [];
 
-async function openTaskModal(id = null) {
-    const form = document.getElementById('task-form'); form.reset();
-    const taskIdEl = document.getElementById('task-id'); if (taskIdEl) taskIdEl.value = id || '';
-    if (id) {
-        const t = DB.tasks.find(x => x.id === id); if (!t) return;
+function openTaskModal(taskId = null, linkedCaseId = null) {
+    const form = document.getElementById('task-form');
+    form.reset();
+    currentTaskAttachments = [];
+    document.getElementById('task-file-list').innerHTML = '';
+    document.getElementById('task-file').value = '';
+    populateAssigneeSelect('task-assignee', '');
+
+    // Populate Case Dropdown FIRST (so values can be set correctly)
+    const caseSel = document.getElementById('task-case-id');
+    caseSel.innerHTML = '<option value="">Select Case (Optional)</option>' + 
+        DB.cases.map(c => `<option value="${c.id}">${esc(c.case_type)} ${c.case_no}/${c.case_year} (${esc(c.petitioner)})</option>`).join('');
+
+    if (taskId) {
+        const t = DB.tasks.find(t => t.id === taskId);
+        if (!t) return;
+        currentTaskAttachments = [...(t.attachments || [])];
+        document.getElementById('task-modal-title').textContent = 'Edit Office Task';
+        document.getElementById('task-id').value = t.id;
         document.getElementById('task-title').value = t.title;
         document.getElementById('task-stage').value = t.stage;
         document.getElementById('task-priority').value = t.priority;
         document.getElementById('task-due').value = t.due || '';
         document.getElementById('task-notes').value = t.notes || '';
-        populateAssigneeSelect('task-assignee', t.assigneeId);
+        
+        // Correctly set the select values
+        const currentAssignee = t.assignee_id || t.assigneeId || '';
+        document.getElementById('task-assignee').value = currentAssignee;
+        
+        const currentCase = t.case_id || t.caseId || '';
+        document.getElementById('task-case-id').value = currentCase;
     } else {
-        populateAssigneeSelect('task-assignee', '');
+        document.getElementById('task-modal-title').textContent = 'New Office Task';
+        document.getElementById('task-id').value = '';
+        document.getElementById('task-title').value = '';
+        document.getElementById('task-stage').value = 'Reading/Brief';
+        document.getElementById('task-assignee').value = '';
+        document.getElementById('task-case-id').value = linkedCaseId || '';
     }
+
+    // Refresh file list display
+    renderTaskFiles();
     openModal('task-modal-overlay');
 }
 
-document.getElementById('task-form').onsubmit = async (e) => {
+function renderTaskFiles() {
+    const list = document.getElementById('task-file-list');
+    if (!list) return;
+    list.innerHTML = currentTaskAttachments.map((f, i) => `
+        <div class="file-pill" style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,240,0.05); padding:6px 10px; border-radius:6px; margin-bottom:4px; font-size:12px">
+            <div style="display:flex; align-items:center; gap:8px; overflow:hidden; max-width:80%">
+                <a href="${f.url}" target="_blank" style="text-decoration:none; font-size:12px; color:var(--accent)">🔗</a>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(f.name)}</span>
+            </div>
+            <button type="button" onclick="removeTaskAttachment(${i})" style="border:none; background:none; cursor:pointer; color:#ef4444; padding:0 4px">✕</button>
+        </div>
+    `).join('');
+}
+
+window.removeTaskAttachment = function (idx) {
+    currentTaskAttachments.splice(idx, 1);
+    renderTaskFiles();
+};
+
+window.removeAttachment = function (idx) {
+    currentTaskAttachments.splice(idx, 1);
+    openTaskModal(document.getElementById('task-id').value); // Re-render modal state
+};
+
+document.getElementById('task-form').addEventListener('submit', async e => {
     e.preventDefault();
     const id = document.getElementById('task-id').value;
-    const data = {
-        title: document.getElementById('task-title').value,
-        stage: document.getElementById('task-stage').value,
-        priority: document.getElementById('task-priority').value,
-        due: document.getElementById('task-due').value,
-        notes: document.getElementById('task-notes').value,
-        assignee_id: document.getElementById('task-assignee').value,
-        _userName: document.getElementById('current-user-name').textContent
-    };
+    const title = document.getElementById('task-title').value.trim();
+    if (!title) { showToast('Title is required', 'error'); return; }
+
+    const submitBtn = e.target.querySelector('button[type=submit]');
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+
+    let finalAttachments = [...currentTaskAttachments];
+
     try {
-        if (id) await API.updateTask(id, data); else await API.createTask(data);
-        showToast('Sync Successful'); closeModal('task-modal-overlay'); await fetchAll(); renderPage(currentPage);
-    } catch (err) { showToast('Sync Failed', 'error'); }
-};
+        const fileInput = document.getElementById('task-file');
+        if (fileInput.files.length > 0) {
+            submitBtn.textContent = 'Uploading files…';
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const file = fileInput.files[i];
 
-async function deleteTask(id) {
-    if (!confirm('Permanent Delete: Are you sure?')) return;
-    try {
-        await API.deleteTask(id); showToast('Task purged.'); await fetchAll(); renderPage(currentPage);
-    } catch (e) { showToast('Purge failed', 'error'); }
-}
+                // 1. Get secure one-time signed URL bypassing Vercel's 4.5MB ceiling
+                const authUrl = await API.getSignUrl({ fileName: file.name });
 
-async function deleteCase(id) {
-    if (!confirm('This will purge the entire case dossier. Proceed?')) return;
-    try {
-        await API.deleteCase(id); showToast('Dossier Purged'); await fetchAll(); renderPage('cases');
-    } catch (e) { showToast('Error purging dossier', 'error'); }
-}
+                // 2. Transmit bytes directly into Supabase Storage
+                const uploadRes = await fetch(authUrl.signedUrl, {
+                    method: 'PUT',
+                    body: file,
+                    headers: { 'Content-Type': file.type || 'application/octet-stream' }
+                });
 
-async function openCaseFile(id) {
-    const c = DB.cases.find(x => x.id === id); if (!c) return;
-    currentCaseInView = c; showPage('case-detail');
-    document.getElementById('cd-title').textContent = `${c.case_type} No. ${c.case_no}/${c.case_year}`;
-    document.getElementById('cd-client').innerHTML = `${esc(c.petitioner)} vs ${esc(c.respondent)}`;
-    document.getElementById('cd-next-hearing').textContent = c.next_hearing || 'Not announced';
-    document.getElementById('cd-court-info').textContent = c.court_name || '—';
-    document.getElementById('cd-notes').textContent = c.notes || 'No briefing recorded.';
-    
-    // Timeline
-    const history = document.getElementById('cd-hearing-history');
-    const events = [...(c.hearing_history || [])].sort((a,b) => new Date(b.date) - new Date(a.date));
-    history.innerHTML = events.map(e => `
-        <div class="timeline-item" style="border-left:2px solid var(--border); padding-left:16px; margin-bottom:16px">
-            <div style="font-size:12px; font-weight:800">${e.date}</div>
-            <div style="font-weight:600">${esc(e.purpose)}</div>
-            <div style="font-size:13px; color:var(--text-secondary)">Result: ${esc(e.result)}</div>
-        </div>
-    `).join('') || '<p>No litigation history.</p>';
-}
+                if (!uploadRes.ok) throw new Error(`Document upload failed securely for ${file.name}`);
 
-async function openCaseModal(id = null) {
-    const form = document.getElementById('case-form'); form.reset();
-    const caseIdEl = document.getElementById('case-id'); if (caseIdEl) caseIdEl.value = id || '';
-    if (id) {
-        const c = DB.cases.find(x => x.id === id); if (!c) return;
-        document.getElementById('case-no').value = c.case_no;
-        document.getElementById('case-year').value = c.case_year;
-        document.getElementById('case-type').value = c.case_type;
-        document.getElementById('case-petitioner').value = c.petitioner;
-        document.getElementById('case-respondent').value = c.respondent;
-        document.getElementById('case-court').value = c.court_name;
-        document.getElementById('case-notes').value = c.notes || '';
+                finalAttachments.push({ name: file.name, url: authUrl.publicUrl });
+            }
+        }
+
+        const data = {
+            title,
+            assignee_id: document.getElementById('task-assignee').value || null,
+            stage: document.getElementById('task-stage').value,
+            priority: document.getElementById('task-priority').value,
+            due: document.getElementById('task-due').value,
+            notes: document.getElementById('task-notes').value.trim(),
+            attachments: finalAttachments,
+            case_id: document.getElementById('task-case-id').value || null,
+            _userName: document.getElementById('current-user-name').textContent
+        };
+
+        if (id) {
+            const updated = await API.updateTask(id, data);
+            const idx = DB.tasks.findIndex(t => t.id === id);
+            if (idx !== -1) DB.tasks[idx] = updated;
+            showToast('Task updated ✓');
+        } else {
+            const created = await API.createTask(data);
+            DB.tasks.unshift(created);
+            showToast('Task created ✓');
+        }
+        closeModal('task-modal-overlay');
+        renderPage(currentPage);
+        await fetchAll(); renderPage(currentPage);
+    } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+    } finally {
+        submitBtn.disabled = false; submitBtn.textContent = 'Save Task';
     }
-    openModal('case-modal-overlay');
-}
+});
 
-document.getElementById('case-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const id = document.getElementById('case-id').value;
-    const data = {
-        case_no: document.getElementById('case-no').value,
-        case_year: document.getElementById('case-year').value,
-        case_type: document.getElementById('case-type').value,
-        petitioner: document.getElementById('case-petitioner').value,
-        respondent: document.getElementById('case-respondent').value,
-        court_name: document.getElementById('case-court').value,
-        notes: document.getElementById('case-notes').value,
-        _userName: document.getElementById('current-user-name').textContent
-    };
-    try {
-        if (id) await API.updateCase(id, data); else await API.createCase(data);
-        showToast('Dossier Synchronized'); closeModal('case-modal-overlay'); await fetchAll(); renderPage('cases');
-    } catch (err) { showToast('Dossier Sync Failed', 'error'); }
-};
+// ============================================================
+// MEMBER MODAL
+// ============================================================
+function openMemberModal(memberId = null) {
+    const form = document.getElementById('member-form');
+    form.reset();
 
-async function openMemberModal(id = null) {
-    const form = document.getElementById('member-form'); form.reset();
-    const memberIdEl = document.getElementById('member-id'); if (memberIdEl) memberIdEl.value = id || '';
-    if (id) {
-        const m = DB.members.find(x => x.id === id); if (!m) return;
+    if (memberId) {
+        const m = DB.members.find(x => x.id === memberId);
+        if (!m) return;
+        document.getElementById('member-modal-title').textContent = 'Edit Team Member';
+        document.getElementById('member-id').value = m.id;
         document.getElementById('member-name').value = m.name;
-        document.getElementById('member-role').value = m.role;
+        document.getElementById('member-username').value = m.username || '';
+        document.getElementById('member-role').value = m.role || 'Associate';
         document.getElementById('member-email').value = m.email || '';
+        document.getElementById('member-phone').value = m.phone || '';
+        document.getElementById('member-submit-btn').textContent = 'Save Changes';
+    } else {
+        document.getElementById('member-modal-title').textContent = 'Add Team Member';
+        document.getElementById('member-id').value = '';
+        document.getElementById('member-submit-btn').textContent = 'Add Member';
     }
     openModal('member-modal-overlay');
 }
 
-document.getElementById('member-form').onsubmit = async (e) => {
+document.getElementById('member-form').addEventListener('submit', async e => {
     e.preventDefault();
-    const id = document.getElementById('member-id').value;
-    const data = {
-        name: document.getElementById('member-name').value,
-        role: document.getElementById('member-role').value,
-        email: document.getElementById('member-email').value,
-    };
-    try {
-        if (id) await API.updateMember(id, data); else await API.createMember(data);
-        showToast('Team Registry Updated'); closeModal('member-modal-overlay'); await fetchAll(); renderPage('team');
-    } catch (err) { showToast('Registry Update Failed', 'error'); }
-};
+    const name = document.getElementById('member-name').value.trim();
+    if (!name) { showToast('Name is required', 'error'); return; }
 
-async function deleteMember(id) {
-    if (!confirm('Remove member from registry?')) return;
+    const submitBtn = e.target.querySelector('button[type=submit]');
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+
     try {
-        await API.deleteMember(id); showToast('Member Removed'); await fetchAll(); renderPage('team');
-    } catch (e) { showToast('Error removing member', 'error'); }
+        const id = document.getElementById('member-id').value;
+        const data = {
+            name,
+            username: document.getElementById('member-username').value.trim().toLowerCase(),
+            role: document.getElementById('member-role').value.trim(),
+            email: document.getElementById('member-email').value.trim(),
+            phone: document.getElementById('member-phone').value.trim()
+        };
+
+        if (id) {
+            const updated = await API.updateMember(id, data);
+            const idx = DB.members.findIndex(m => m.id === id);
+            if (idx !== -1) DB.members[idx] = updated;
+            showToast('Profile updated ✓');
+        } else {
+            const created = await API.createMember(data);
+            DB.members.push(created);
+            showToast('Member added ✓');
+        }
+        closeModal('member-modal-overlay');
+        renderTeam();
+        refreshAssigneeSelects();
+        applyRoleRestrictions();
+        await fetchAll(); renderPage(currentPage);
+    } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+    } finally {
+        submitBtn.disabled = false; submitBtn.textContent = 'Save Member';
+    }
+});
+
+// ============================================================
+// TASK DETAIL MODAL
+// ============================================================
+async function openDetail(taskId) {
+    const t = DB.tasks.find(t => t.id === taskId);
+    if (!t) return;
+
+    document.getElementById('detail-body').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Loading history...</div>';
+    openModal('detail-modal-overlay');
+
+    const logs = await API.getLogs(taskId).catch(() => []);
+    const logsHtml = logs.length === 0 ? '<p style="font-size:13px;color:var(--text-muted);margin-top:8px">No history yet.</p>' :
+        '<div class="audit-trail">' + logs.map(l => `
+        <div class="audit-item">
+          <div class="audit-dot" style="background: ${l.action_type === 'stage' ? '#f59e0b' : l.action_type === 'reassign' ? '#3b82f6' : l.action_type === 'created' ? '#10b981' : '#6366f1'}"></div>
+          <div class="audit-time">${new Date(l.created_at).toLocaleString()}</div>
+          <div><span class="audit-user">${esc(l.user_name)}</span> ${esc(l.description)}</div>
+        </div>
+      `).join('') + '</div>';
+
+    const member = getMember(t.assigneeId);
+    const sm = STAGE_META[t.stage] || {};
+    const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
+    const ds = dueStatus(t.due);
+
+    document.getElementById('detail-title').textContent = t.title;
+    document.getElementById('detail-body').innerHTML = `
+    <div class="detail-grid" style="grid-template-columns:1fr 1fr;gap:12px">
+      <div class="detail-field"><label>Office Action</label><p>${esc(t.title)}</p></div>
+      <div class="detail-field"><label>Assigned To</label>
+        <div class="assignee-chip" style="margin-top:4px">
+          <div class="chip-av">${initials(member.name)}</div>${esc(member.name)}
+        </div>
+      </div>
+      <div class="detail-field"><label>Priority</label><p><span class="priority-pill ${pm.cls}">${pm.label}</span></p></div>
+      <div class="detail-field"><label>Stage</label><p><span class="stage-badge ${sm.cls}">${t.stage}</span></p></div>
+      <div class="detail-field"><label>Due Date</label><p class="due-text ${ds}">${dueTxt(t.due)}</p></div>
+    </div>
+    <div class="detail-field" style="margin:16px 0"><label>Office Notes</label>
+      <div class="detail-notes" style="background:var(--bg-secondary);padding:12px;border-radius:6px;font-size:14px">${esc(t.notes || 'No notes added.')}</div>
+    </div>
+    
+    <!-- Task Attachments Section -->
+    <div class="detail-field" style="margin:16px 0">
+      <label style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase">📑 Attached Briefcase & Artifacts</label>
+      <div id="detail-attachments" style="margin-top:8px; display:grid; grid-template-columns:repeat(auto-fill, minmax(130px,1fr)); gap:8px">
+        ${(t.attachments || []).map(f => `
+          <a href="${f.url}" target="_blank" class="doc-card" style="padding:8px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:4px; text-decoration:none; display:flex; align-items:center; gap:8px">
+            <span style="font-size:16px">${f.url?.includes('.pdf') ? '📄' : '🖼️'}</span>
+            <div style="flex:1; overflow:hidden">
+              <div style="font-size:10px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(f.name)}</div>
+            </div>
+            <span style="font-size:12px; color:var(--accent)">🔗 Open</span>
+          </a>
+        `).join('') || '<div style="color:var(--text-muted); font-size:12px">No attachments for this action.</div>'}
+      </div>
+    </div>
+    
+    <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--border)">
+       <label style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase">📅 Professional History & Tracking</label>
+       <div id="detail-logs-container" style="margin-top:12px"></div>
+    </div>
+    
+    <div class="modal-actions" style="border-top:1px solid var(--border);padding-top:16px; margin-top:20px">
+      <button class="btn-secondary" onclick="closeModal('detail-modal-overlay')">Close</button>
+      <button class="btn-primary" onclick="closeModal('detail-modal-overlay');openTaskModal('${t.id}')">✏️ Edit Action</button>
+    </div>`;
+
+    // Populate logs in the container after the body structure is set
+    document.getElementById('detail-logs-container').innerHTML = logsHtml;
 }
 
-// (Full CRUD and Event Handlers follow in the same stable pattern)
 // ============================================================
-// SYSTEM BOOT
+// CASE FILE DIALOG
 // ============================================================
+async function openCaseFile(caseId) {
+    const c = DB.cases.find(x => x.id === caseId);
+    if (!c) return;
+    
+    currentCaseInView = c; // Set global state
+    showPage('case-detail');
+    
+    // Partner-only Delete Control
+    const delBtn = document.getElementById('cd-delete-case-btn');
+    if (delBtn) delBtn.style.display = (windowCurrentUserLevel === 'admin') ? 'block' : 'none';
+    
+    // Populate Case Info
+    const fullNo = `${c.case_type} No. ${c.case_no}/${c.case_year}`;
+    document.getElementById('cd-title').textContent = fullNo;
+    document.getElementById('cd-client').innerHTML = `${esc(c.petitioner)} <span style="color:var(--text-secondary); opacity:0.6">vs</span> ${esc(c.respondent)}`;
+
+    // Populate Header Metadata Chips
+    document.getElementById('hdr-stage').textContent = c.stage || 'Pending';
+    document.getElementById('hdr-appearing').textContent = c.appearing_for || '—';
+
+    // Sidebar Extension
+    const p = DB.members.find(m => m.id === c.partner_id);
+    document.getElementById('cd-assignee-name').textContent = p ? p.name : 'Unassigned';
+    document.getElementById('cd-assignee-av').textContent = initials(p ? p.name : '??');
+    
+    // Detailed Info
+    const nextDate = c.next_hearing;
+    const isToday = nextDate === today();
+    let nextStr = nextDate ? new Date(nextDate).toLocaleDateString() : 'Not Announced / Pending';
+    if (c.purpose) nextStr += ` (${c.purpose})`;
+    
+    document.getElementById('cd-next-hearing').innerHTML = isToday 
+        ? `<span style="background:#ef4444; color:white; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800; vertical-align:middle; margin-right:8px">MATTER FOR TODAY</span> ${nextStr}`
+        : nextStr;
+    
+    // Header Court Info
+    const courtStr = `${c.court_name || ''} ${c.court_hall ? '| ' + c.court_hall : ''}`.trim() || '—';
+    document.getElementById('cd-court-info').textContent = courtStr;
+
+    document.getElementById('cd-notes').innerHTML = `
+        <div>${esc(c.notes || 'No briefing added.')}</div>
+    `;
+
+    // Documents & Artifacts (Feature 4 - Managed Folders)
+    const docs = c.attachments || [];
+    const categories = ['Pleadings', 'Applications', 'Evidence', 'Court Orders', 'Client Docs'];
+    const docGrid = document.getElementById('cd-docs');
+    
+    if (docs.length === 0) {
+        docGrid.innerHTML = `
+            <div style="text-align:center; width:100%; padding:20px; color:var(--text-secondary); border:1px dashed var(--border); border-radius:8px">
+                No documents uploaded yet. 
+            </div>
+        `;
+    } else {
+        docGrid.innerHTML = categories.map(cat => {
+            const catDocs = docs.filter(d => d.category === cat);
+            if (catDocs.length === 0) return '';
+            return `
+                <div style="margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px">
+                    <div style="font-size:11px; font-weight:700; color:var(--primary); text-transform:uppercase; margin-bottom:8px">📂 ${cat}</div>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px">
+                        ${catDocs.map(d => {
+                            const mainIdx = docs.indexOf(d);
+                            return `
+                            <div class="doc-card" style="padding:10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:4px; display:flex; align-items:center; gap:8px">
+                                <span style="font-size:20px; flex-shrink:0">${d.type?.includes('image') ? '🖼️' : '📄'}</span>
+                                <div style="flex:1; overflow:hidden">
+                                    <div style="font-size:11px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
+                                </div>
+                                <div style="display:flex; gap:8px; flex-shrink:0">
+                                    <a href="${d.url}" target="_blank" style="text-decoration:none; padding:4px; font-size:12px">🔗</a>
+                                    <button class="doc-del-btn" id="cd-del-doc-btn-${mainIdx}" style="padding:4px; border:none; background:none; cursor:pointer; font-size:12px; color:#ef4444; opacity:0.6">🗑️</button>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('') || '<div style="color:var(--text-secondary); font-size:13px">No categorized documents.</div>';
+    }
+
+    // ============================================================
+    // CONSOLIDATED LITIGATION TIMELINE (Unified Past + Future)
+    // ============================================================
+    const historyList = document.getElementById('cd-hearing-history');
+    if (!historyList) return;
+
+    // 1. Prepare All Chronological Events
+    const events = [];
+    
+    // Add Upcoming (if set)
+    if (c.next_hearing) {
+        events.push({
+            date: c.next_hearing,
+            purpose: c.purpose || 'Scheduled Hearing',
+            type: 'upcoming',
+            isToday: c.next_hearing === today()
+        });
+    }
+    
+    // Add Past History
+    (c.hearing_history || []).forEach(h => {
+        events.push({
+            date: h.date,
+            purpose: h.purpose,
+            attendance: h.attendance,
+            result: h.result,
+            type: 'past'
+        });
+    });
+
+    // 2. Sort by Date DESC (Future on top)
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (events.length === 0) {
+        historyList.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-secondary); border:1px dashed var(--border); border-radius:12px">No litigation events recorded. Click 'Update Matter Status' to synchronize your schedule.</div>`;
+    } else {
+        historyList.innerHTML = events.map(e => {
+            const isUp = e.type === 'upcoming';
+            const accent = isUp ? 'var(--accent)' : 'var(--border)';
+            const border = isUp ? 'var(--accent)' : 'var(--border)';
+            const bg = isUp ? 'rgba(99, 102, 241, 0.08)' : 'transparent';
+
+            return `
+                <div class="timeline-item" style="border-left:3px solid ${border}; padding-left:24px; margin-bottom:24px; position:relative; background:${bg}; padding-top:12px; padding-bottom:12px; border-radius:0 8px 8px 0">
+                    <div style="width:14px; height:14px; border-radius:50%; background:${isUp ? 'var(--accent)' : 'var(--text-muted)'}; position:absolute; left:-9px; top:16px; border:3px solid var(--bg-card)"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px">
+                        <span style="font-size:12px; font-weight:800; color:${isUp ? 'var(--accent)' : 'var(--text-secondary)'}; background:rgba(255,255,255,0.03); padding:2px 8px; border-radius:4px; text-transform:uppercase; letter-spacing:0.05em">
+                            ${isUp ? (e.isToday ? '🚨 LISTED FOR TODAY' : '🗓️ UPCOMING LISTING') : '✅ COMPLETED HEARING'}
+                        </span>
+                        <span style="font-size:12px; font-weight:700; color:var(--text-primary)">
+                            ${new Date(e.date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                        </span>
+                    </div>
+                    <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px">${esc(e.purpose)}</div>
+                    ${e.attendance ? `<div style="font-size:11px; color:var(--text-secondary); margin-bottom:8px">Appearance: <span style="color:var(--text-primary); font-weight:600">${esc(e.attendance)}</span></div>` : ''}
+                    ${e.result ? `<div style="font-size:13px; color:var(--text-secondary); background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; line-height:1.4; border:1px solid rgba(255,255,255,0.05)">${esc(e.result)}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Linked Office Works (Feature 2)
+    const linkedTasks = DB.tasks.filter(t => t.case_id === c.id);
+    const taskList = document.getElementById('cd-linked-tasks');
+    if (linkedTasks.length === 0) {
+        taskList.innerHTML = `<div style="padding:20px; text-align:center; border:1px dashed var(--border); border-radius:8px; color:var(--text-secondary); font-size:13px">No office works currently linked. Click link to associate drafting/research tasks.</div>`;
+    } else {
+        taskList.innerHTML = linkedTasks.map(t => {
+            const sm = STAGE_META[t.stage] || { cls: '', dot: '#ccc' };
+            return `
+                <div class="linked-task-pill" onclick="openDetail('${t.id}')" style="cursor:pointer">
+                    <div style="display:flex; align-items:center; gap:10px">
+                        <div style="width:8px; height:8px; border-radius:50%; background:${sm.dot}"></div>
+                        <span style="font-weight:600">${esc(t.title)}</span>
+                    </div>
+                    <span class="task-status-chip" style="background:${sm.dot}15; color:${sm.dot}">${t.stage}</span>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+// ============================================================
+// GLOBAL LITIGATION ACTIONS (Bulletproof Delegation)
+// ============================================================
+document.addEventListener('click', async e => {
+    const btn = e.target.closest('button');
+    if (!btn || !btn.id) return;
+
+    // Detect Litigation Action (cd- prefix)
+    if (btn.id.startsWith('cd-')) {
+        const c = currentCaseInView;
+        if (!c) {
+            console.error('[Litigation] No active case file context found for action.');
+            return;
+        }
+
+        switch (btn.id) {
+            case 'cd-edit-btn':
+                openCaseModal(c.id);
+                break;
+            case 'cd-set-date-btn':
+                openHearingModal(c.id);
+                break;
+            case 'cd-create-task-btn':
+                openTaskModal(null, c.id);
+                break;
+            case 'cd-add-doc-btn':
+                document.getElementById('doc-case-id').value = c.id;
+                openModal('doc-modal-overlay');
+                break;
+            case 'cd-delete-case-btn':
+                if (windowCurrentUserLevel !== 'admin') {
+                    showToast('Admin privilege required.', 'error');
+                    return;
+                }
+                if (confirm(`⚠️ DELETE CASE FILE: ${c.case_type} No. ${c.case_no}/${c.case_year}?\n\nThis will permanently remove the case, all briefings, and all hearing history. This action cannot be undone.`)) {
+                    try {
+                        showToast('Deleting Litigation File...', 'info');
+                        await API.deleteCase(c.id);
+                        showToast('Case File Deleted');
+                        window.location.hash = '';
+                        initApp();
+                    } catch (err) { showToast(err.message, 'error'); }
+                }
+                break;
+        }
+
+        // Handle Document Deletion (cd-del-doc-btn-index)
+        if (btn.id.startsWith('cd-del-doc-btn-')) {
+            const index = parseInt(btn.id.split('-').pop());
+            const c = currentCaseInView;
+            if (c && confirm('Confirm removal of this document from briefcase?')) {
+                const updated = [...(c.attachments || [])];
+                updated.splice(index, 1);
+                try {
+                    showToast('Removing Artifact...', 'info');
+                    await API.updateCase(c.id, { attachments: updated });
+                    showToast('Briefcase Updated ✓');
+                    await fetchAll();
+                    openCaseFile(c.id);
+                } catch (err) { showToast(err.message, 'error'); }
+            }
+        }
+    }
+});
+
+// ============================================================
+// DOCUMENT ARCHIVE HANDLER
+// ============================================================
+document.getElementById('doc-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const caseId = document.getElementById('doc-case-id').value;
+    const cat = document.getElementById('doc-category').value;
+    const fileInput = document.getElementById('doc-files');
+    
+    if (fileInput.files.length === 0) return;
+    
+    const c = DB.cases.find(x => x.id === caseId);
+    if (!c) return;
+
+    const btn = document.getElementById('doc-save-btn');
+    btn.textContent = 'Archiving Artifacts…';
+    btn.disabled = true;
+
+    try {
+        showToast(`Archiving into ${cat}...`, 'info');
+        const newFiles = [];
+        for (const file of fileInput.files) {
+            const authRes = await API.getSignUrl({ fileName: file.name });
+            await fetch(authRes.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+            newFiles.push({ name: file.name, url: authRes.publicUrl, category: cat, type: file.type });
+        }
+        
+        const updatedAttachments = [...(c.attachments || []), ...newFiles];
+        await API.updateCase(c.id, { attachments: updatedAttachments });
+        
+        showToast('Briefcase Updated ✓');
+        closeModal('doc-modal-overlay');
+        await fetchAll();
+        openCaseFile(caseId);
+    } catch (err) { 
+        showToast(err.message, 'error'); 
+    } finally {
+        btn.textContent = 'Archive into File';
+        btn.disabled = false;
+    }
+});
+
+// ============================================================
+// CASE MODAL (Legal Management)
+// ============================================================
+function openCaseModal(caseId = null) {
+    const form = document.getElementById('case-form');
+    form.reset();
+    populatePartnerSelect();
+    
+    if (caseId) {
+        const c = DB.cases.find(x => x.id === caseId);
+        if (!c) return;
+        document.getElementById('case-modal-title').textContent = 'Edit Case File';
+        document.getElementById('case-id').value = c.id;
+        document.getElementById('case-type').value = c.case_type || '';
+        document.getElementById('case-no').value = c.case_no || '';
+        document.getElementById('case-year').value = c.case_year || '';
+        document.getElementById('case-court').value = c.court_name || '';
+        document.getElementById('case-hall').value = c.court_hall || '';
+        document.getElementById('case-petitioner-type').value = c.petitioner_type || 'Petitioner';
+        document.getElementById('case-petitioner').value = c.petitioner || '';
+        document.getElementById('case-respondent-type').value = c.respondent_type || 'Respondent';
+        document.getElementById('case-respondent').value = c.respondent || '';
+
+        // Sync appearing for BEFORE setting its value
+        updateAppearingForOptions();
+        document.getElementById('case-appearing-for').value = c.appearing_for || document.getElementById('case-petitioner-type').value;
+        
+        document.getElementById('case-partner').value = c.partner_id || '';
+        document.getElementById('case-notes').value = c.notes || '';
+    } else {
+        document.getElementById('case-modal-title').textContent = 'New Case File';
+        document.getElementById('case-id').value = '';
+        document.getElementById('case-year').value = new Date().getFullYear();
+        updateAppearingForOptions();
+    }
+    openModal('case-modal-overlay');
+}
+
+function updateAppearingForOptions() {
+    const pType = document.getElementById('case-petitioner-type').value;
+    const rType = document.getElementById('case-respondent-type').value;
+    const select = document.getElementById('case-appearing-for');
+    const currentVal = select.value;
+    
+    select.innerHTML = `
+        <option value="${pType}">${pType}</option>
+        <option value="${rType}">${rType}</option>
+    `;
+    
+    // Attempt to preserve value if it matches the new options
+    if (currentVal === pType || currentVal === rType) {
+        select.value = currentVal;
+    }
+}
+
+function populatePartnerSelect() {
+    const select = document.getElementById('case-partner');
+    const partners = DB.members.filter(m => m.role === 'Partner');
+    select.innerHTML = '<option value="">Select Partner</option>' + 
+        partners.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+}
+
+document.getElementById('case-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = document.getElementById('case-id').value;
+    const data = {
+        case_type: document.getElementById('case-type').value,
+        case_no: document.getElementById('case-no').value.trim(),
+        case_year: document.getElementById('case-year').value.trim(),
+        court_name: document.getElementById('case-court').value.trim(),
+        court_hall: document.getElementById('case-hall').value.trim(),
+        petitioner_type: document.getElementById('case-petitioner-type').value,
+        petitioner: document.getElementById('case-petitioner').value.trim(),
+        respondent_type: document.getElementById('case-respondent-type').value,
+        respondent: document.getElementById('case-respondent').value.trim(),
+        appearing_for: document.getElementById('case-appearing-for').value,
+        partner_id: document.getElementById('case-partner').value,
+        notes: document.getElementById('case-notes').value.trim()
+    };
+
+    try {
+        if (id) {
+            const res = await API.updateCase(id, data);
+            const idx = DB.cases.findIndex(x => x.id === id);
+            DB.cases[idx] = res;
+            showToast('Case updated ✓');
+        } else {
+            const res = await API.createCase(data);
+            DB.cases.push(res);
+            showToast('New Case Registered ✓');
+        }
+        closeModal('case-modal-overlay');
+        renderCases();
+        if (id) openCaseFile(id); 
+    } catch (err) { showToast(err.message, 'error'); }
+});
+
+// HEARING UPDATE LOGIC
+function openHearingModal(caseId) {
+    const c = DB.cases.find(x => x.id === caseId);
+    if (!c) return;
+
+    // Populate Attendance Options
+    const attendanceSel = document.getElementById('h-attendance-sel');
+    attendanceSel.innerHTML = '<option value="">Select Attending Member</option>' +
+        DB.members.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('') +
+        '<option value="other">Others (Specify Name)</option>';
+
+    document.getElementById('hearing-case-id').value = c.id;
+    document.getElementById('h-stage').value = c.stage || 'Admission / Fresh Filing';
+    document.getElementById('h-next-date').value = c.next_hearing || '';
+    document.getElementById('h-purpose').value = c.purpose || '';
+    document.getElementById('h-result').value = '';
+    document.getElementById('h-attendance-other').style.display = 'none';
+    
+    openModal('hearing-modal-overlay');
+}
+
+document.getElementById('h-attendance-sel').addEventListener('change', (e) => {
+    document.getElementById('h-attendance-other').style.display = (e.target.value === 'other') ? 'block' : 'none';
+});
+
+document.getElementById('hearing-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('hearing-case-id').value;
+    const oldCase = DB.cases.find(x => x.id === id);
+    if (!oldCase) return;
+
+    const lastResult = document.getElementById('h-result').value.trim();
+    const selVal = document.getElementById('h-attendance-sel').value;
+    const specified = document.getElementById('h-attendance-other').value.trim();
+    const attendance = (selVal === 'other') ? specified : selVal;
+    
+    let history = oldCase.hearing_history || [];
+    
+    // Archive if result provided
+    if (lastResult) {
+        history = [{
+            date: oldCase.next_hearing || today(),
+            purpose: oldCase.purpose || 'Scheduled Hearing',
+            attendance: attendance || 'Attended',
+            result: lastResult
+        }, ...history];
+    }
+
+    const data = {
+        stage: document.getElementById('h-stage').value,
+        next_hearing: document.getElementById('h-next-date').value || null,
+        purpose: document.getElementById('h-purpose').value.trim(),
+        hearing_history: history
+    };
+
+    try {
+        showToast('Updating Litigation Timeline...', 'info');
+        const res = await API.updateCase(id, data);
+        const idx = DB.cases.findIndex(x => x.id === id);
+        DB.cases[idx] = res;
+        showToast('Timeline Updated ✓');
+        closeModal('hearing-modal-overlay');
+        renderCases();
+        openCaseFile(id);
+    } catch (err) { showToast(err.message, 'error'); }
+});
+
+// ============================================================
+// DELETE
+// ============================================================
+async function deleteTask(id) {
+    if (!confirm('Delete this task?')) return;
+    DB.tasks = DB.tasks.filter(t => t.id !== id); // optimistic
+    renderPage(currentPage);
+    try {
+        await API.deleteTask(id);
+        showToast('Task deleted');
+        await fetchAll(); renderPage(currentPage);
+    } catch (err) { showToast('Error deleting task', 'error'); await fetchAll(); renderPage(currentPage); }
+}
+
+async function deleteMember(id) {
+    if (!confirm('Remove this member? Their tasks will become unassigned.')) return;
+    DB.members = DB.members.filter(m => m.id !== id); // optimistic
+    DB.tasks.forEach(t => { if (t.assigneeId === id) t.assigneeId = ''; });
+    renderTeam(); refreshAssigneeSelects();
+    try {
+        await API.deleteMember(id);
+        showToast('Member removed');
+        await fetchAll(); renderPage(currentPage);
+    } catch (err) { showToast('Error removing member', 'error'); await fetchAll(); renderPage(currentPage); }
+}
+
+// ============================================================
+// MODAL HELPERS
+// ============================================================
+function openModal(id) { 
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('open'); 
+    el.style.opacity = '1'; 
+    el.style.pointerEvents = 'all'; 
+}
+function closeModal(id) { 
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('open'); 
+    el.style.opacity = '0'; 
+    el.style.pointerEvents = 'none'; 
+}
+
+function populateAssigneeSelect(selectId, selectedId) {
+    const sel = document.getElementById(selectId);
+    sel.innerHTML = '<option value="">Select member</option>' +
+        DB.members.map(m => `<option value="${m.id}" ${m.id === selectedId ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+}
+function populateAssigneeFilter(selectId, selectedVal) {
+    const sel = document.getElementById(selectId);
+    const cur = selectedVal || sel.value;
+    sel.innerHTML = '<option value="all">All Members</option>' +
+        DB.members.map(m => `<option value="${m.id}" ${m.id === cur ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+}
+
+// ============================================================
+// SEARCH
+// ============================================================
+document.getElementById('search-input').addEventListener('input', () => {
+    if (currentPage !== 'tasks') showPage('tasks');
+    else renderTasks();
+});
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+document.getElementById('new-task-btn').addEventListener('click', () => openTaskModal());
+
+document.querySelectorAll('.nav-item').forEach(el =>
+    el.addEventListener('click', e => { e.preventDefault(); showPage(el.dataset.page); })
+);
+document.querySelectorAll('.view-all').forEach(el =>
+    el.addEventListener('click', e => { e.preventDefault(); showPage(el.dataset.page); })
+);
+document.getElementById('add-member-btn').addEventListener('click', () => openMemberModal());
+document.getElementById('lnn-brain-btn').addEventListener('click', () => openModal('lnn-brain-overlay'));
+
+// ============================================================
+// LNN LEGAL BRAIN: AI ASSISTANT LOGIC
+// ============================================================
+async function askBrain(query) {
+    const input = document.getElementById('ai-input');
+    const msg = query || input.value.trim();
+    if (!msg) return;
+    
+    if (!query) input.value = '';
+    appendMessage('user', msg);
+    
+    const botMsgDiv = appendMessage('bot', '🧠 Analysing Litigation Files...');
+    
+    try {
+        const res = await fetch('/api/brain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                query: msg,
+                contextCase: currentCaseInView,
+                data: { cases: DB.cases, tasks: DB.tasks } 
+            })
+        });
+        const data = await res.json();
+        botMsgDiv.textContent = data.answer || 'Consultation complete. Proceeding with litigation strategy.';
+    } catch (err) {
+        botMsgDiv.textContent = 'Connection to LNN Brain interrupted. Please re-synchronize.';
+        console.error(err);
+    }
+}
+
+function appendMessage(who, text) {
+    const history = document.getElementById('ai-chat-history');
+    const div = document.createElement('div');
+    div.className = `ai-msg ${who}`;
+    div.textContent = text;
+    history.appendChild(div);
+    history.scrollTop = history.scrollHeight;
+    return div;
+}
+
+document.getElementById('ai-send-btn').addEventListener('click', () => askBrain());
+document.getElementById('ai-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askBrain(); }
+});
+
+async function syncCurrentCaseWithECourts(caseId) {
+    const id = caseId || currentCaseInView?.id;
+    const c = DB.cases.find(x => x.id === id);
+    if (!c) { showToast('Case not found for sync', 'error'); return; }
+    if (!c.cnr) { showToast('CNR No. missing. Add CNR to enable Sync.', 'warning'); return; }
+
+    const btn = document.getElementById('cd-sync-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '🔄 Syncing...'; }
+
+    try {
+        const res = await fetch('/api/ecourts-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ caseId: c.id, cnr: c.cnr })
+        });
+        const data = await res.json();
+        
+        if (data.error) throw new Error(data.error);
+
+        // Update local DB
+        const idx = DB.cases.findIndex(x => x.id === c.id);
+        if (idx !== -1) DB.cases[idx] = data.updated;
+        
+        showToast(data.message || 'Case synchronized ✓');
+        
+        // Refresh UI if in view
+        if (currentCaseInView?.id === c.id) {
+            currentCaseInView = data.updated;
+            openCaseFile(c.id); 
+        }
+    } catch (err) {
+        showToast(err.message || 'eCourts Sync Failed', 'error');
+        console.error(err);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync with eCourts'; }
+    }
+}
+
+document.getElementById('cd-sync-btn')?.addEventListener('click', () => syncCurrentCaseWithECourts());
+
+['task-modal-close', 'task-cancel-btn'].forEach(id =>
+    document.getElementById(id)?.addEventListener('click', () => closeModal('task-modal-overlay'))
+);
+['member-modal-close', 'member-cancel-btn'].forEach(id =>
+    document.getElementById(id)?.addEventListener('click', () => closeModal('member-modal-overlay'))
+);
+['case-modal-close', 'case-cancel-btn'].forEach(id =>
+    document.getElementById(id)?.addEventListener('click', () => closeModal('case-modal-overlay'))
+);
+document.getElementById('detail-modal-close').addEventListener('click', () => closeModal('detail-modal-overlay'));
+document.querySelectorAll('.modal-overlay').forEach(overlay =>
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); })
+);
+document.getElementById('sidebar-toggle').addEventListener('click', () =>
+    document.getElementById('sidebar').classList.toggle('open')
+);
+
+document.getElementById('case-petitioner-type').addEventListener('change', updateAppearingForOptions);
+document.getElementById('case-respondent-type').addEventListener('change', updateAppearingForOptions);
+
+document.getElementById('cases-search-input').addEventListener('input', renderCases);
+document.getElementById('add-case-btn').addEventListener('click', () => openCaseModal());
+
+document.getElementById('case-back-btn').addEventListener('click', () => {
+    window.location.hash = ''; // Clear hash
+    showPage('dashboard');
+});
+
+// Hash routing for deep links
+function handleHash() {
+    const h = window.location.hash;
+    if (h.startsWith('#case/')) {
+        const id = h.split('/')[1];
+        if (id) openCaseFile(id);
+    }
+}
+window.addEventListener('hashchange', handleHash);
+
+document.getElementById('board-filter-assignee').addEventListener('change', renderBoard);
+document.getElementById('board-filter-priority').addEventListener('change', renderBoard);
+document.getElementById('tasks-filter-stage').addEventListener('change', renderTasks);
+document.getElementById('tasks-filter-assignee').addEventListener('change', renderTasks);
+document.getElementById('tasks-filter-priority').addEventListener('change', renderTasks);
+
+// AI BRIEFING GENERATOR
+const aiBriefBtn = document.getElementById('case-ai-brief-btn');
+if (aiBriefBtn) {
+    aiBriefBtn.onclick = () => {
+        const type = document.getElementById('case-type').value || '[Case Type]';
+        const no = document.getElementById('case-no').value || '[No.]';
+        const year = document.getElementById('case-year').value || '[Year]';
+        const court = document.getElementById('case-court').value || '[Court Name]';
+        const hall = document.getElementById('case-hall') ? document.getElementById('case-hall').value : document.getElementById('case-court-hall')?.value || '[Court Hall]';
+        const pet = document.getElementById('case-petitioner').value || '[Petitioner]';
+        const res = document.getElementById('case-respondent').value || '[Respondent]';
+        const forSide = document.getElementById('case-appearing-for').value || '[Party]';
+
+        const narrative = `This is a ${type} matter filed before the ${court} (${hall}). The case is officially registered as ${type} No. ${no}/${year}. 
+
+The firm is appearing for the ${forSide} (${forSide === 'Petitioner' ? pet : res}). 
+
+The primary objective of the litigation is to represent the ${forSide}'s interest effectively before the Bench. Legal associates are directed to ensure all necessary research and documentation are prioritized for the upcoming court sessions.`;
+
+        document.getElementById('case-notes').value = narrative;
+        showToast('AI Briefing Drafted ✨');
+    };
+}
+
+// ============================================================
+// LOGIN & INIT
+// ============================================================
+document.getElementById('login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    const err = document.getElementById('login-err');
+    const btn = e.target.querySelector('button');
+    err.style.display = 'none';
+    btn.textContent = 'Authenticating…';
+    btn.disabled = true;
+
+    try {
+        const res = await API.loginUser({ username: u, password: p });
+        if (res.success) {
+            localStorage.setItem('lnn_auth_user', u);
+            document.getElementById('login-overlay').classList.add('hidden');
+            initApp();
+        }
+    } catch (e) {
+        err.textContent = e.message;
+        err.style.display = 'block';
+    } finally {
+        btn.textContent = 'Secure Login';
+        btn.disabled = false;
+    }
+});
+
 async function initApp() {
     setLoading(true);
     try {
-        await fetchAll(); refreshAssigneeSelects();
+        await fetchAll();
+        refreshAssigneeSelects();
+        
+        // Handle deep links on init
         const h = window.location.hash;
         if (h.startsWith('#case/')) {
-            const id = h.split('/')[1]; if (id) openCaseFile(id);
-        } else { showPage('dashboard'); }
+            handleHash();
+        } else {
+            showPage('dashboard');
+        }
+        
         startAutoRefresh();
-        console.log('LNN_INIT: Operation Stabilized v4.0.0 ✓');
     } catch (err) {
-        showToast('Sync Interrupt: Operating in Local Cache Mode.', 'warning', true);
+        console.error('LNN_BOOT_FAILURE:', err);
+        showToast('Sync interrupted — loading cached view', 'error');
         showPage('dashboard');
-    } finally { setLoading(false); }
+    } finally {
+        setLoading(false);
+    }
 }
 
+// Initial Boot
 (async () => {
     const user = localStorage.getItem('lnn_auth_user');
-    if (!user) { document.getElementById('login-overlay').classList.remove('hidden'); }
-    else { 
+    if (!user) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+    } else {
         document.getElementById('login-overlay').classList.add('hidden');
         document.getElementById('current-user-name').textContent = user;
         document.getElementById('current-user-avatar').textContent = initials(user);
-        initApp(); 
+        initApp();
     }
 })();
 
-// EVENT LISTENERS (Consolidated)
-function openModal(id) { const el = document.getElementById(id); if (el) { el.classList.add('open'); el.style.opacity = '1'; el.style.pointerEvents = 'all'; } }
-function closeModal(id) { const el = document.getElementById(id); if (el) { el.classList.remove('open'); el.style.opacity = '0'; el.style.pointerEvents = 'none'; } }
-document.getElementById('sidebar-toggle').onclick = () => document.getElementById('sidebar').classList.toggle('open');
-document.querySelectorAll('.nav-item').forEach(n => n.onclick = (e) => { e.preventDefault(); showPage(n.dataset.page); });
-document.getElementById('logout-btn').onclick = () => { localStorage.removeItem('lnn_auth_user'); location.reload(); };
-document.getElementById('lnn-brain-btn').onclick = () => openModal('lnn-brain-overlay');
-document.querySelectorAll('.modal-overlay').forEach(o => o.onclick = e => { if (e.target === o) closeModal(o.id); });
+document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('lnn_auth_user');
+    location.reload();
+});
+
+document.addEventListener('change', e => {
+    if (e.target.id === 'cl-date-picker') renderCauseList();
+});
+
+// AI Brain Sidebar
+document.getElementById('lnn-brain-btn').addEventListener('click', () => openModal('lnn-brain-overlay'));
 
 async function askBrain(q) {
     const input = document.getElementById('ai-input');
-    const msg = q || input.value.trim(); if (!msg) return;
-    if (!q) input.value = '';
+    const msg = q || (input ? input.value.trim() : ''); if (!msg) return;
+    if (!q && input) input.value = '';
     const h = document.getElementById('ai-chat-history');
     const uMsg = document.createElement('div'); uMsg.className = 'ai-msg user'; uMsg.textContent = msg; h.appendChild(uMsg);
     const bMsg = document.createElement('div'); bMsg.className = 'ai-msg bot'; bMsg.textContent = '🧠 Analyzing...'; h.appendChild(bMsg);
     h.scrollTop = h.scrollHeight;
     try {
         const res = await fetch('/api/brain', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: msg, contextCase: currentCaseInView, data: { cases: DB.cases, tasks: DB.tasks } }) });
-        const d = await res.json(); bMsg.textContent = d.answer || 'Consultation complete.';
-    } catch (e) { bMsg.textContent = 'Connection interrupted.'; }
+        const d = await res.json(); bMsg.textContent = d.answer || d.error || 'No response.';
+    } catch (e) { bMsg.textContent = 'AI Brain not connected. Link your Gemini API key in Vercel.'; }
     h.scrollTop = h.scrollHeight;
 }
-document.getElementById('ai-send-btn').onclick = () => askBrain();
-document.getElementById('ai-input').onkeypress = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askBrain(); } };
+document.getElementById('ai-send-btn').addEventListener('click', () => askBrain());
+document.getElementById('ai-input').addEventListener('keypress', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askBrain(); } });
 
-document.getElementById('login-form').onsubmit = async e => {
-    e.preventDefault(); const u = document.getElementById('login-user').value.trim(); const p = document.getElementById('login-pass').value;
-    const btn = e.target.querySelector('button'); btn.textContent = 'Authenticating...'; btn.disabled = true;
-    try {
-        const res = await API.loginUser({ username: u, password: p });
-        if (res.success) { localStorage.setItem('lnn_auth_user', u); location.reload(); }
-    } catch (err) { alert('Login failed: ' + err.message); } finally { btn.textContent = 'Secure Login'; btn.disabled = false; }
-};
+function syncCurrentCaseWithECourts() {
+    showToast('eCourts sync initiated...', 'info');
+    // Placeholder — requires backend /api/ecourts-sync
+}
