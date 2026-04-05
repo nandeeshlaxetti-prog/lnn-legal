@@ -91,7 +91,7 @@ module.exports = async (req, res) => {
         return res.json({ answer: "⚠️ Gemini API key not configured. Add GEMINI_API_KEY to your Vercel environment variables." });
     }
 
-    const systemPrompt = `You are the "LNN Legal Brain", a senior AI litigation strategy assistant for a law firm in Bengaluru, India. You specialize in Indian High Court and District Court proceedings.
+    const systemPrompt = `You are "LNN Bot", a senior AI litigation strategy assistant for a law firm in Bengaluru, India. You specialize in Indian High Court and District Court proceedings.
 
 You have LIVE access to the firm's complete database. Use this data to answer questions precisely.
 
