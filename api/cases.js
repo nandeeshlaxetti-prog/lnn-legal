@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
             petitioner_type, petitioner, respondent_type, respondent, 
             appearing_for, partner_id, notes, attachments,
             stage, next_hearing, purpose,
-            hearing_history
+            hearing_history, cnr
         } = req.body;
         
         const { data, error } = await supabase.from('cases').insert([{
@@ -47,7 +47,8 @@ module.exports = async (req, res) => {
             stage: stage || 'Admission / Fresh Filing',
             next_hearing: next_hearing || null,
             purpose: purpose || null,
-            hearing_history: hearing_history || []
+            hearing_history: hearing_history || [],
+            cnr: cnr || null
         }]).select().single();
         if (error) return res.status(500).json({ error: error.message });
         return res.status(201).json(data);
@@ -61,7 +62,7 @@ module.exports = async (req, res) => {
             petitioner_type, petitioner, respondent_type, respondent, 
             appearing_for, partner_id, notes, attachments,
             stage, next_hearing, purpose,
-            hearing_history
+            hearing_history, cnr
         } = req.body;
         
         const updates = {};
@@ -78,6 +79,7 @@ module.exports = async (req, res) => {
         if (partner_id !== undefined) updates.partner_id = partner_id || null;
         if (notes !== undefined) updates.notes = notes || null;
         if (attachments !== undefined) updates.attachments = attachments;
+        if (cnr !== undefined) updates.cnr = cnr || null;
         
         if (stage !== undefined) updates.stage = stage;
         if (next_hearing !== undefined) updates.next_hearing = next_hearing || null;
