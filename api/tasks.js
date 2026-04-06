@@ -61,6 +61,9 @@ function mapTask(t) {
         notes: t.notes, 
         caseId: t.case_id,
         case_id: t.case_id,
+        client: t.client,
+        caseNo: t.case_no,
+        case_no: t.case_no,
         createdAt: t.created_at,
         attachments: t.attachments || []
     };
@@ -93,7 +96,7 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
         const { 
             title, description, stage, priority, due, 
-            assignee_id, case_id, attachments, _userName
+            assignee_id, case_id, client, case_no, attachments, _userName
         } = req.body;
         
         const { data, error } = await supabase.from('tasks').insert([{
@@ -104,6 +107,8 @@ module.exports = async (req, res) => {
             due: due || null,
             assignee_id: assignee_id || null,
             case_id: case_id || null,
+            client: client || null,
+            case_no: case_no || null,
             attachments: attachments || []
         }]).select().single();
         if (error) return res.status(500).json({ error: error.message });
@@ -125,7 +130,7 @@ module.exports = async (req, res) => {
 
         const { 
             title, description, stage, priority, due, 
-            assignee_id, case_id, attachments
+            assignee_id, case_id, client, case_no, attachments
         } = req.body;
 
         const { data: oldTask } = await supabase.from('tasks').select('*').eq('id', id).single();
@@ -138,6 +143,8 @@ module.exports = async (req, res) => {
         if (due !== undefined) updates.due = due || null; // Fix: convert "" to null
         if (assignee_id !== undefined) updates.assignee_id = assignee_id;
         if (case_id !== undefined) updates.case_id = case_id || null;
+        if (client !== undefined) updates.client = client || null;
+        if (case_no !== undefined) updates.case_no = case_no || null;
         if (attachments !== undefined) updates.attachments = attachments;
 
         const { data, error } = await supabase.from('tasks').update(updates).eq('id', id).select().single();

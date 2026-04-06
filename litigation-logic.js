@@ -377,10 +377,14 @@ function buildKCard(task) {
     const card = document.createElement('div');
     card.className = 'kcard';
     card.draggable = true;
+    const caseObj = task.case_id ? DB.cases.find(c => c.id === task.case_id) : null;
+    const clientName = task.client || (caseObj ? caseObj.petitioner : '');
+    const caseNumber = task.caseNo || task.case_no || (caseObj ? `${caseObj.case_type} ${caseObj.case_no}/${caseObj.case_year}` : '');
+
     card.innerHTML = `
     <div class="kcard-priority-bar" style="background:${pm.color}"></div>
     <div class="kcard-title">${esc(task.title)}</div>
-    ${task.client ? `<div class="kcard-client">${esc(task.client)}${task.caseNo ? ' · ' + esc(task.caseNo) : ''}</div>` : ''}
+    ${clientName ? `<div class="kcard-client">${esc(clientName)}${caseNumber ? ' · ' + esc(caseNumber) : ''}</div>` : ''}
     <div class="kcard-footer">
       <div class="kcard-assignee">
         <div class="kcard-avatar">${initials(member.name)}</div>
@@ -442,7 +446,14 @@ function renderTasks() {
         return `<tr onclick="openDetail('${t.id}')">
       <td class="td-title">
         <div>${esc(t.title)}</div>
-        ${t.client || t.caseNo ? `<div class="td-sub">${t.client ? esc(t.client) : ''}${t.caseNo ? ' · ' + esc(t.caseNo) : ''}</div>` : ''}
+        <div class="td-sub">
+          ${(() => {
+            const cObj = t.case_id ? DB.cases.find(c => c.id === t.case_id) : null;
+            const client = t.client || (cObj ? cObj.petitioner : '');
+            const cNo = t.caseNo || t.case_no || (cObj ? `${cObj.case_type} ${cObj.case_no}/${cObj.case_year}` : '');
+            return client || cNo ? `${esc(client)}${cNo ? ' · ' + esc(cNo) : ''}` : 'No case linked';
+          })()}
+        </div>
       </td>
       <td><div class="assignee-chip"><div class="chip-av">${initials(member.name)}</div>${esc(member.name)}</div></td>
       <td><span class="stage-badge ${sm.cls}">${t.stage}</span></td>
@@ -547,9 +558,19 @@ function openTaskModal(taskId = null, linkedCaseId = null) {
     document.getElementById('task-file').value = '';
     populateAssigneeSelect('task-assignee', '');
 
+    // Reset manual fields
+    const manualToggle = document.getElementById('task-manual-toggle');
+    const manualFields = document.getElementById('manual-case-fields');
+    const caseSelect = document.getElementById('task-case-id');
+    
+    manualToggle.checked = false;
+    manualFields.style.display = 'none';
+    caseSelect.disabled = false;
+    document.getElementById('task-manual-client').value = '';
+    document.getElementById('task-manual-case-no').value = '';
+
     // Populate Case Dropdown FIRST (so values can be set correctly)
-    const caseSel = document.getElementById('task-case-id');
-    caseSel.innerHTML = '<option value="">Select Case (Optional)</option>' + 
+    caseSelect.innerHTML = '<option value="">Select Case (Optional)</option>' + 
         DB.cases.map(c => `<option value="${c.id}">${esc(c.case_type)} ${c.case_no}/${c.case_year} (${esc(c.petitioner)})</option>`).join('');
 
     if (taskId) {
@@ -569,14 +590,27 @@ function openTaskModal(taskId = null, linkedCaseId = null) {
         document.getElementById('task-assignee').value = currentAssignee;
         
         const currentCase = t.case_id || t.caseId || '';
-        document.getElementById('task-case-id').value = currentCase;
+        caseSelect.value = currentCase;
+
+        // Populate manual fields if they exist
+        const clientVal = t.client || '';
+        const caseNoVal = t.caseNo || t.case_no || '';
+        document.getElementById('task-manual-client').value = clientVal;
+        document.getElementById('task-manual-case-no').value = caseNoVal;
+
+        if (clientVal || caseNoVal) {
+            manualToggle.checked = true;
+            manualFields.style.display = 'block';
+            caseSelect.disabled = true;
+            caseSelect.value = '';
+        }
     } else {
         document.getElementById('task-modal-title').textContent = 'New Office Task';
         document.getElementById('task-id').value = '';
         document.getElementById('task-title').value = '';
         document.getElementById('task-stage').value = 'Reading/Brief';
         document.getElementById('task-assignee').value = '';
-        document.getElementById('task-case-id').value = linkedCaseId || '';
+        caseSelect.value = linkedCaseId || '';
     }
 
     // Refresh file list display
@@ -607,6 +641,14 @@ window.removeAttachment = function (idx) {
     currentTaskAttachments.splice(idx, 1);
     openTaskModal(document.getElementById('task-id').value); // Re-render modal state
 };
+
+document.getElementById('task-manual-toggle').addEventListener('change', e => {
+    const isManual = e.target.checked;
+    document.getElementById('manual-case-fields').style.display = isManual ? 'block' : 'none';
+    const caseSelect = document.getElementById('task-case-id');
+    caseSelect.disabled = isManual;
+    if (isManual) caseSelect.value = '';
+});
 
 document.getElementById('task-form').addEventListener('submit', async e => {
     e.preventDefault();
@@ -642,6 +684,7 @@ document.getElementById('task-form').addEventListener('submit', async e => {
             }
         }
 
+        const isManual = document.getElementById('task-manual-toggle').checked;
         const data = {
             title,
             assignee_id: document.getElementById('task-assignee').value || null,
@@ -650,7 +693,9 @@ document.getElementById('task-form').addEventListener('submit', async e => {
             due: document.getElementById('task-due').value,
             notes: document.getElementById('task-notes').value.trim(),
             attachments: finalAttachments,
-            case_id: document.getElementById('task-case-id').value || null,
+            case_id: isManual ? null : (document.getElementById('task-case-id').value || null),
+            client: isManual ? document.getElementById('task-manual-client').value.trim() : null,
+            case_no: isManual ? document.getElementById('task-manual-case-no').value.trim() : null,
             _userName: document.getElementById('current-user-name').textContent
         };
 
@@ -765,6 +810,10 @@ async function openDetail(taskId) {
     const pm = PRIORITY_META[t.priority] || PRIORITY_META.medium;
     const ds = dueStatus(t.due);
 
+    const currentCaseObj = t.case_id ? DB.cases.find(c => c.id === t.case_id) : null;
+    const currentClientName = t.client || (currentCaseObj ? currentCaseObj.petitioner : '—');
+    const currentCaseNumber = t.caseNo || t.case_no || (currentCaseObj ? `${currentCaseObj.case_type} ${currentCaseObj.case_no}/${currentCaseObj.case_year}` : 'Not Linked');
+
     document.getElementById('detail-title').textContent = t.title;
     document.getElementById('detail-body').innerHTML = `
     <div class="detail-grid" style="grid-template-columns:1fr 1fr;gap:12px">
@@ -777,6 +826,20 @@ async function openDetail(taskId) {
       <div class="detail-field"><label>Priority</label><p><span class="priority-pill ${pm.cls}">${pm.label}</span></p></div>
       <div class="detail-field"><label>Stage</label><p><span class="stage-badge ${sm.cls}">${t.stage}</span></p></div>
       <div class="detail-field"><label>Due Date</label><p class="due-text ${ds}">${dueTxt(t.due)}</p></div>
+    </div>
+
+    <div class="detail-field" style="margin:16px 0; border:1px solid var(--border); padding:12px; border-radius:8px; background:rgba(255,255,255,0.02)">
+      <label style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase">⚖️ Litigation Context</label>
+      <div style="margin-top:8px; display:flex; gap:16px; flex-wrap:wrap">
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase">Client / Petitioner</div>
+          <div style="font-size:14px; font-weight:600">${esc(currentClientName)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase">Case Number</div>
+          <div style="font-size:14px; font-weight:600">${esc(currentCaseNumber)}</div>
+        </div>
+      </div>
     </div>
     <div class="detail-field" style="margin:16px 0"><label>Office Notes</label>
       <div class="detail-notes" style="background:var(--bg-secondary);padding:12px;border-radius:6px;font-size:14px">${esc(t.notes || 'No notes added.')}</div>
