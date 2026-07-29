@@ -40,8 +40,214 @@ const API = {
     uploadFile(data) { return this.request('/api/upload', { method: 'POST', body: data }); },
     getSignUrl(data) { return this.request('/api/upload-url', { method: 'POST', body: data }); },
     getLogs(id) { return this.request(`/api/logs?taskId=${id}`); },
-    loginUser(data) { return this.request('/api/login', { method: 'POST', body: data }); }
+    loginUser(data) { return this.request('/api/login', { method: 'POST', body: data }); },
+    saveOCR(data) { return this.request('/api/ocr-save', { method: 'POST', body: data }); },
+    getOCR(fileUrl) { return this.request(`/api/ocr-save?file_url=${encodeURIComponent(fileUrl)}`); },
+    searchOCR(q, caseId) { return this.request(`/api/ocr-search?q=${encodeURIComponent(q)}${caseId ? '&case_id=' + caseId : ''}`); }
 };
+
+// ============================================================
+// OCR ENGINE — Silent PDF Processing (English + Kannada)
+// Runs entirely in the browser. No server timeouts.
+// ============================================================
+const OCREngine = {
+    _worker: null,
+    _workerReady: false,
+    _ocrCache: {}, // fileUrl -> 'done'|'failed'|'pending'
+
+    async _getPDFLib() {
+        const lib = window['pdfjs-dist/build/pdf'];
+        if (lib) {
+            if (!lib.GlobalWorkerOptions.workerSrc) {
+                lib.GlobalWorkerOptions.workerSrc =
+                    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+            }
+            return lib;
+        }
+        return null;
+    },
+
+    async _getWorker() {
+        if (this._worker && this._workerReady) return this._worker;
+        if (!window.Tesseract) return null;
+        this._worker = await Tesseract.createWorker(['eng', 'kan'], 1, {
+            logger: () => {} // Silent — no console spam
+        });
+        this._workerReady = true;
+        return this._worker;
+    },
+
+    // Step 1: Try to extract embedded text from digital PDFs (instant)
+    async _extractDigitalText(blobUrl) {
+        try {
+            const pdfjsLib = await this._getPDFLib();
+            if (!pdfjsLib) return '';
+            const pdf = await pdfjsLib.getDocument(blobUrl).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                fullText += content.items.map(s => s.str).join(' ') + '\n';
+            }
+            return fullText.trim();
+        } catch (e) {
+            return '';
+        }
+    },
+
+    // Step 2: Render each PDF page to canvas and run Tesseract OCR
+    async _ocrScannedPDF(blobUrl) {
+        try {
+            const pdfjsLib = await this._getPDFLib();
+            const worker = await this._getWorker();
+            if (!pdfjsLib || !worker) return '';
+            const pdf = await pdfjsLib.getDocument(blobUrl).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 2.0 }); // High DPI for accuracy
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const ctx = canvas.getContext('2d');
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                const { data: { text } } = await worker.recognize(canvas);
+                fullText += text + '\n';
+                canvas.remove();
+            }
+            return fullText.trim();
+        } catch (e) {
+            console.warn('[OCR] Tesseract failed:', e.message);
+            return '';
+        }
+    },
+
+    // Main entry — call this after any PDF upload
+    async processFile(file, publicUrl, caseId, taskId) {
+        if (!file || !file.name.toLowerCase().endsWith('.pdf')) return;
+        if (this._ocrCache[publicUrl] === 'done') return;
+
+        this._ocrCache[publicUrl] = 'pending';
+        updateOCRBadge(publicUrl, 'pending');
+
+        const blobUrl = URL.createObjectURL(file);
+        try {
+            // Try digital text extraction first (fast path)
+            let text = await this._extractDigitalText(blobUrl);
+
+            // If too little text found, it's a scanned doc — run full OCR
+            if (text.replace(/\s/g, '').length < 50) {
+                text = await this._ocrScannedPDF(blobUrl);
+            }
+
+            // Get page count
+            let pageCount = 1;
+            try {
+                const pdfjsLib = await this._getPDFLib();
+                if (pdfjsLib) {
+                    const pdf = await pdfjsLib.getDocument(blobUrl).promise;
+                    pageCount = pdf.numPages;
+                }
+            } catch (_) {}
+
+            if (text.length > 0) {
+                await API.saveOCR({
+                    file_url: publicUrl,
+                    file_name: file.name,
+                    case_id: caseId || null,
+                    task_id: taskId || null,
+                    ocr_text: text,
+                    page_count: pageCount
+                });
+                this._ocrCache[publicUrl] = 'done';
+                updateOCRBadge(publicUrl, 'done');
+            } else {
+                this._ocrCache[publicUrl] = 'failed';
+                updateOCRBadge(publicUrl, 'failed');
+            }
+        } catch (e) {
+            console.warn('[OCR] Processing error:', e.message);
+            this._ocrCache[publicUrl] = 'failed';
+            updateOCRBadge(publicUrl, 'failed');
+        } finally {
+            URL.revokeObjectURL(blobUrl);
+        }
+    }
+};
+
+// Update OCR status badge on document cards by file URL
+function updateOCRBadge(fileUrl, status) {
+    const badges = document.querySelectorAll(`[data-ocr-url="${CSS.escape(fileUrl)}"]`);
+    badges.forEach(badge => {
+        if (status === 'done') {
+            badge.textContent = '✅ Searchable';
+            badge.style.color = '#10b981';
+            badge.style.background = 'rgba(16,185,129,0.1)';
+        } else if (status === 'pending') {
+            badge.textContent = '⏳ Indexing...';
+            badge.style.color = '#f59e0b';
+            badge.style.background = 'rgba(245,158,11,0.1)';
+        } else {
+            badge.textContent = '—';
+            badge.style.color = 'var(--text-muted)';
+        }
+    });
+}
+
+// Open OCR text drawer for a specific document
+async function openOCRDrawer(fileUrl, fileName) {
+    const overlay = document.getElementById('ocr-drawer-overlay');
+    const drawer = document.getElementById('ocr-drawer');
+    const titleEl = document.getElementById('ocr-drawer-title');
+    const metaEl = document.getElementById('ocr-drawer-meta');
+    const textEl = document.getElementById('ocr-drawer-text');
+
+    titleEl.textContent = '📄 ' + (fileName || 'Document Text');
+    metaEl.textContent = 'Loading extracted text...';
+    textEl.textContent = 'Loading...';
+
+    // Open drawer
+    overlay.style.pointerEvents = 'all';
+    overlay.style.opacity = '1';
+    drawer.style.transform = 'translateX(0)';
+
+    try {
+        const result = await API.getOCR(fileUrl);
+        if (result && result.ocr_text) {
+            textEl.textContent = result.ocr_text;
+            metaEl.textContent = `${result.page_count || 1} page(s) • ${result.ocr_text.length.toLocaleString()} characters extracted`;
+
+            // In-drawer search
+            const searchInput = document.getElementById('ocr-drawer-search');
+            let rawText = result.ocr_text;
+            searchInput.oninput = () => {
+                const q = searchInput.value.trim();
+                if (!q) { textEl.textContent = rawText; return; }
+                const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const highlighted = rawText.replace(
+                    new RegExp(escaped, 'gi'),
+                    match => `<mark style="background:#f59e0b;color:#000;border-radius:2px;padding:0 2px">${match}</mark>`
+                );
+                textEl.innerHTML = highlighted;
+            };
+        } else {
+            textEl.textContent = 'No text extracted yet. This may still be processing, or OCR failed for this document.';
+            metaEl.textContent = '';
+        }
+    } catch (e) {
+        textEl.textContent = 'Could not load OCR text: ' + e.message;
+        metaEl.textContent = '';
+    }
+}
+
+function closeOCRDrawer() {
+    const overlay = document.getElementById('ocr-drawer-overlay');
+    const drawer = document.getElementById('ocr-drawer');
+    overlay.style.opacity = '0';
+    overlay.style.pointerEvents = 'none';
+    drawer.style.transform = 'translateX(100%)';
+    document.getElementById('ocr-drawer-search').value = '';
+}
 
 // ============================================================
 // CONSTANTS
@@ -660,6 +866,7 @@ document.getElementById('task-form').addEventListener('submit', async e => {
     submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
 
     let finalAttachments = [...currentTaskAttachments];
+    const newTaskPDFs = []; // Track new PDF uploads for OCR
 
     try {
         const fileInput = document.getElementById('task-file');
@@ -681,6 +888,11 @@ document.getElementById('task-form').addEventListener('submit', async e => {
                 if (!uploadRes.ok) throw new Error(`Document upload failed securely for ${file.name}`);
 
                 finalAttachments.push({ name: file.name, url: authUrl.publicUrl });
+
+                // Track PDFs for silent background OCR
+                if (file.name.toLowerCase().endsWith('.pdf')) {
+                    newTaskPDFs.push({ file, url: authUrl.publicUrl });
+                }
             }
         }
 
@@ -699,6 +911,7 @@ document.getElementById('task-form').addEventListener('submit', async e => {
             _userName: document.getElementById('current-user-name').textContent
         };
 
+        let savedTaskId = id;
         if (id) {
             const updated = await API.updateTask(id, data);
             const idx = DB.tasks.findIndex(t => t.id === id);
@@ -707,11 +920,17 @@ document.getElementById('task-form').addEventListener('submit', async e => {
         } else {
             const created = await API.createTask(data);
             DB.tasks.unshift(created);
+            savedTaskId = created.id;
             showToast('Task created ✓');
         }
         closeModal('task-modal-overlay');
         renderPage(currentPage);
         await fetchAll(); renderPage(currentPage);
+
+        // Trigger silent background OCR for newly uploaded PDFs
+        for (const { file, url } of newTaskPDFs) {
+            OCREngine.processFile(file, url, null, savedTaskId);
+        }
     } catch (err) {
         showToast('Error: ' + err.message, 'error');
     } finally {
@@ -884,6 +1103,8 @@ async function openCaseFile(caseId) {
     
     currentCaseInView = c; // Set global state
     showPage('case-detail');
+    // Load OCR badges for all PDFs in this case (async, non-blocking)
+    setTimeout(() => loadOCRBadgesForCase(caseId), 600);
     
     // Partner-only Delete Control
     const delBtn = document.getElementById('cd-delete-case-btn');
@@ -942,15 +1163,20 @@ async function openCaseFile(caseId) {
                     <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:12px">
                         ${catDocs.map(d => {
                             const mainIdx = docs.indexOf(d);
+                            const isPDF = d.name?.toLowerCase().endsWith('.pdf');
                             return `
-                            <div class="doc-card" style="padding:10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:4px; display:flex; align-items:center; gap:8px">
-                                <span style="font-size:20px; flex-shrink:0">${d.type?.includes('image') ? '🖼️' : '📄'}</span>
-                                <div style="flex:1; overflow:hidden">
-                                    <div style="font-size:11px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
-                                </div>
-                                <div style="display:flex; gap:8px; flex-shrink:0">
-                                    <a href="${d.url}" target="_blank" style="text-decoration:none; padding:4px; font-size:12px">🔗</a>
-                                    <button class="doc-del-btn" id="cd-del-doc-btn-${mainIdx}" style="padding:4px; border:none; background:none; cursor:pointer; font-size:12px; color:#ef4444; opacity:0.6">🗑️</button>
+                            <div class="doc-card" style="padding:10px; background:var(--bg-elevated); border:1px solid var(--border); border-radius:6px; display:flex; flex-direction:column; gap:6px">
+                                <div style="display:flex; align-items:center; gap:8px">
+                                    <span style="font-size:20px; flex-shrink:0">${d.type?.includes('image') ? '🖼️' : '📄'}</span>
+                                    <div style="flex:1; overflow:hidden">
+                                        <div style="font-size:11px; font-weight:600; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="${esc(d.name)}">${esc(d.name)}</div>
+                                        ${isPDF ? `<span data-ocr-url="${d.url}" style="font-size:10px; padding:1px 5px; border-radius:3px; background:rgba(99,102,241,0.1); color:var(--text-secondary)">⏳ Checking...</span>` : ''}
+                                    </div>
+                                    <div style="display:flex; gap:6px; flex-shrink:0">
+                                        <a href="${d.url}" target="_blank" style="text-decoration:none; padding:4px; font-size:12px" title="Open document">🔗</a>
+                                        ${isPDF ? `<button onclick="openOCRDrawer('${d.url}','${esc(d.name)}')" style="padding:3px 7px; border:1px solid var(--border); background:rgba(99,102,241,0.15); border-radius:4px; cursor:pointer; font-size:10px; color:var(--primary)" title="View extracted text">📖 Text</button>` : ''}
+                                        <button class="doc-del-btn" id="cd-del-doc-btn-${mainIdx}" style="padding:4px; border:none; background:none; cursor:pointer; font-size:12px; color:#ef4444; opacity:0.6">🗑️</button>
+                                    </div>
                                 </div>
                             </div>`;
                         }).join('')}
@@ -1137,10 +1363,14 @@ document.getElementById('doc-form').addEventListener('submit', async (e) => {
     try {
         showToast(`Archiving into ${cat}...`, 'info');
         const newFiles = [];
+        const newCasePDFs = []; // Track PDFs for OCR
         for (const file of fileInput.files) {
             const authRes = await API.getSignUrl({ fileName: file.name });
             await fetch(authRes.signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
             newFiles.push({ name: file.name, url: authRes.publicUrl, category: cat, type: file.type });
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                newCasePDFs.push({ file, url: authRes.publicUrl });
+            }
         }
         
         const updatedAttachments = [...(c.attachments || []), ...newFiles];
@@ -1150,6 +1380,11 @@ document.getElementById('doc-form').addEventListener('submit', async (e) => {
         closeModal('doc-modal-overlay');
         await fetchAll();
         openCaseFile(caseId);
+
+        // Silent background OCR for newly archived PDFs
+        for (const { file, url } of newCasePDFs) {
+            OCREngine.processFile(file, url, caseId, null);
+        }
     } catch (err) { 
         showToast(err.message, 'error'); 
     } finally {
@@ -1667,4 +1902,51 @@ async function askBrain(q) {
 document.getElementById('ai-send-btn').addEventListener('click', () => askBrain());
 document.getElementById('ai-input').addEventListener('keypress', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askBrain(); } });
 
+// ============================================================
+// OCR DOCUMENT SEARCH — Cases Page
+// ============================================================
+let _ocrSearchTimer = null;
+document.getElementById('doc-ocr-search-input').addEventListener('input', function () {
+    clearTimeout(_ocrSearchTimer);
+    const q = this.value.trim();
+    const resultsPanel = document.getElementById('ocr-search-results');
+    if (q.length < 2) { resultsPanel.style.display = 'none'; return; }
+    _ocrSearchTimer = setTimeout(async () => {
+        try {
+            const data = await API.searchOCR(q);
+            const body = document.getElementById('ocr-search-results-body');
+            if (!data.results || data.results.length === 0) {
+                body.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px">No documents found containing that text.</div>';
+            } else {
+                body.innerHTML = data.results.map(r => {
+                    const caseObj = DB.cases.find(c => c.id === r.case_id);
+                    const caseLabel = caseObj ? `${caseObj.case_type || ''} ${caseObj.case_no || ''} — ${caseObj.petitioner || ''}`.trim() : (r.task_id ? 'From Task' : 'Unlinked');
+                    const snippet = r.snippet ? r.snippet.replace(
+                        new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'),
+                        m => `<mark style="background:#f59e0b33;color:#f59e0b;border-radius:2px">${m}</mark>`
+                    ) : '';
+                    return `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer" onclick="openOCRDrawer('${r.file_url}','${(r.file_name||'').replace(/'/g,'')}')">  
+                        <div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:2px">${caseLabel}</div>
+                        <div style="font-size:12px;font-weight:600;margin-bottom:4px">📄 ${r.file_name || 'Document'} <span style="font-weight:400;color:var(--text-secondary)">(${r.page_count || 1}p)</span></div>
+                        <div style="font-size:11px;color:var(--text-secondary);line-height:1.5">${snippet}</div>
+                    </div>`;
+                }).join('');
+            }
+            resultsPanel.style.display = 'block';
+        } catch (e) {
+            console.error('[OCR Search]', e);
+        }
+    }, 400);
+});
 
+// Load OCR status badges for all visible PDFs on case detail open
+async function loadOCRBadgesForCase(caseId) {
+    try {
+        const records = await API.request(`/api/ocr-save?case_id=${caseId}`);
+        if (!Array.isArray(records)) return;
+        records.forEach(r => {
+            OCREngine._ocrCache[r.file_url] = r.status;
+            updateOCRBadge(r.file_url, r.status);
+        });
+    } catch (_) {}
+}

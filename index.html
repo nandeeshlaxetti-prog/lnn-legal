@@ -275,10 +275,14 @@
         <!-- CASES PAGE -->
         <section class="page" id="page-cases">
             <div class="cases-header">
-                <div class="cases-controls">
+                <div class="cases-controls" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
                     <div class="search-box">
                         <span class="search-icon">🔍</span>
                         <input type="text" id="cases-search-input" placeholder="Search Cases / Client..." />
+                    </div>
+                    <div class="search-box" style="min-width:220px">
+                        <span class="search-icon">📄</span>
+                        <input type="text" id="doc-ocr-search-input" placeholder="Search document text..." />
                     </div>
                 </div>
                 <button class="btn-primary associate-plus" id="add-case-btn">+ New Legal Case</button>
@@ -834,7 +838,37 @@
     <!-- Toast Notification -->
     <div class="toast" id="toast"></div>
 
-    <script src="litigation-logic.js?v=2.0.0"></script>
+    <!-- OCR Document Search Results Panel -->
+    <div id="ocr-search-results" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:560px;max-width:95vw;max-height:340px;overflow-y:auto;background:var(--bg-surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:9998;padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-weight:700;font-size:13px">📄 Document Search Results</span>
+            <button onclick="document.getElementById('ocr-search-results').style.display='none'" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:16px">✕</button>
+        </div>
+        <div id="ocr-search-results-body"></div>
+    </div>
+
+    <!-- OCR Text Viewer Drawer -->
+    <div id="ocr-drawer-overlay" onclick="closeOCRDrawer()" style="position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.3s;background:rgba(0,0,0,0.45)">
+        <div id="ocr-drawer" onclick="event.stopPropagation()" style="position:fixed;right:0;top:0;height:100vh;width:440px;max-width:95vw;background:var(--bg-surface);border-left:1px solid var(--border);display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);box-shadow:-20px 0 60px rgba(0,0,0,0.4)">
+            <div style="padding:20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start">
+                <div>
+                    <div style="font-weight:700;font-size:15px;margin-bottom:4px" id="ocr-drawer-title">📄 Document Text</div>
+                    <div style="font-size:11px;color:var(--text-secondary)" id="ocr-drawer-meta"></div>
+                </div>
+                <button onclick="closeOCRDrawer()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:18px;margin-top:-2px">✕</button>
+            </div>
+            <div style="padding:20px 20px 8px;display:flex;gap:8px">
+                <input type="text" id="ocr-drawer-search" placeholder="Search within this document..." style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg-elevated);color:var(--text-primary);font-size:12px" />
+            </div>
+            <div style="padding:8px 20px 20px;overflow-y:auto;flex:1;font-size:13px;line-height:1.8;color:var(--text-primary);white-space:pre-wrap;word-break:break-word;font-family:monospace" id="ocr-drawer-text">Loading...</div>
+        </div>
+    </div>
+
+    <!-- PDF.js for digital PDF text extraction -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <!-- Tesseract.js for scanned PDF OCR (English + Kannada) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="litigation-logic.js?v=2.1.0"></script>
 </body>
 
 </html>
