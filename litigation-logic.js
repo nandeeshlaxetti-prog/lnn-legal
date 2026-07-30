@@ -41,9 +41,9 @@ const API = {
     getSignUrl(data) { return this.request('/api/upload-url', { method: 'POST', body: data }); },
     getLogs(id) { return this.request(`/api/logs?taskId=${id}`); },
     loginUser(data) { return this.request('/api/login', { method: 'POST', body: data }); },
-    saveOCR(data) { return this.request('/api/ocr-save', { method: 'POST', body: data }); },
-    getOCR(fileUrl) { return this.request(`/api/ocr-save?file_url=${encodeURIComponent(fileUrl)}`); },
-    searchOCR(q, caseId) { return this.request(`/api/ocr-search?q=${encodeURIComponent(q)}${caseId ? '&case_id=' + caseId : ''}`); }
+    saveOCR(data) { return this.request('/api/ocr', { method: 'POST', body: data }); },
+    getOCR(fileUrl) { return this.request(`/api/ocr?file_url=${encodeURIComponent(fileUrl)}`); },
+    searchOCR(q, caseId) { return this.request(`/api/ocr?search=${encodeURIComponent(q)}${caseId ? '&case_id=' + caseId : ''}`); }
 };
 
 // ============================================================
@@ -177,21 +177,23 @@ const OCREngine = {
 
 // Update OCR status badge on document cards by file URL
 function updateOCRBadge(fileUrl, status) {
-    const badges = document.querySelectorAll(`[data-ocr-url="${CSS.escape(fileUrl)}"]`);
-    badges.forEach(badge => {
-        if (status === 'done') {
-            badge.textContent = '✅ Searchable';
-            badge.style.color = '#10b981';
-            badge.style.background = 'rgba(16,185,129,0.1)';
-        } else if (status === 'pending') {
-            badge.textContent = '⏳ Indexing...';
-            badge.style.color = '#f59e0b';
-            badge.style.background = 'rgba(245,158,11,0.1)';
-        } else {
-            badge.textContent = '—';
-            badge.style.color = 'var(--text-muted)';
-        }
-    });
+    try {
+        const badges = document.querySelectorAll(`[data-ocr-url="${CSS.escape(fileUrl)}"]`);
+        badges.forEach(badge => {
+            if (status === 'done') {
+                badge.textContent = '✅ Searchable';
+                badge.style.color = '#10b981';
+                badge.style.background = 'rgba(16,185,129,0.1)';
+            } else if (status === 'pending') {
+                badge.textContent = '⏳ Indexing...';
+                badge.style.color = '#f59e0b';
+                badge.style.background = 'rgba(245,158,11,0.1)';
+            } else {
+                badge.textContent = '—';
+                badge.style.color = 'var(--text-muted)';
+            }
+        });
+    } catch (_) {} // Silently ignore if element missing
 }
 
 // Open OCR text drawer for a specific document
@@ -1906,35 +1908,41 @@ document.getElementById('ai-input').addEventListener('keypress', e => { if (e.ke
 // OCR DOCUMENT SEARCH — Cases Page
 // ============================================================
 let _ocrSearchTimer = null;
-document.getElementById('doc-ocr-search-input').addEventListener('input', function () {
-    clearTimeout(_ocrSearchTimer);
-    const q = this.value.trim();
-    const resultsPanel = document.getElementById('ocr-search-results');
-    if (q.length < 2) { resultsPanel.style.display = 'none'; return; }
-    _ocrSearchTimer = setTimeout(async () => {
-        try {
-            const data = await API.searchOCR(q);
-            const body = document.getElementById('ocr-search-results-body');
-            if (!data.results || data.results.length === 0) {
-                body.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px">No documents found containing that text.</div>';
-            } else {
-                body.innerHTML = data.results.map(r => {
-                    const caseObj = DB.cases.find(c => c.id === r.case_id);
-                    const caseLabel = caseObj ? `${caseObj.case_type || ''} ${caseObj.case_no || ''} — ${caseObj.petitioner || ''}`.trim() : (r.task_id ? 'From Task' : 'Unlinked');
-                    const snippet = r.snippet ? r.snippet.replace(
-                        new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'),
-                        m => `<mark style="background:#f59e0b33;color:#f59e0b;border-radius:2px">${m}</mark>`
-                    ) : '';
-                    return `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer" onclick="openOCRDrawer('${r.file_url}','${(r.file_name||'').replace(/'/g,'')}')">  
-                        <div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:2px">${caseLabel}</div>
-                        <div style="font-size:12px;font-weight:600;margin-bottom:4px">📄 ${r.file_name || 'Document'} <span style="font-weight:400;color:var(--text-secondary)">(${r.page_count || 1}p)</span></div>
-                        <div style="font-size:11px;color:var(--text-secondary);line-height:1.5">${snippet}</div>
-                    </div>`;
-                }).join('');
+const _ocrSearchEl = document.getElementById('doc-ocr-search-input');
+if (_ocrSearchEl) {
+    _ocrSearchEl.addEventListener('input', function () {
+        clearTimeout(_ocrSearchTimer);
+        const q = this.value.trim();
+        const resultsPanel = document.getElementById('ocr-search-results');
+        if (!resultsPanel || q.length < 2) { if (resultsPanel) resultsPanel.style.display = 'none'; return; }
+        _ocrSearchTimer = setTimeout(async () => {
+            try {
+                const data = await API.searchOCR(q);
+                const body = document.getElementById('ocr-search-results-body');
+                if (!body) return;
+                if (!data.results || data.results.length === 0) {
+                    body.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px">No documents found containing that text.</div>';
+                } else {
+                    body.innerHTML = data.results.map(r => {
+                        const caseObj = DB.cases.find(c => c.id === r.case_id);
+                        const caseLabel = caseObj ? `${caseObj.case_type || ''} ${caseObj.case_no || ''} — ${caseObj.petitioner || ''}`.trim() : (r.task_id ? 'From Task' : 'Unlinked');
+                        const snippet = r.snippet ? r.snippet.replace(
+                            new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'),
+                            m => `<mark style="background:#f59e0b33;color:#f59e0b;border-radius:2px">${m}</mark>`
+                        ) : '';
+                        const safeUrl = (r.file_url || '').replace(/'/g, '');
+                        const safeName = (r.file_name || '').replace(/'/g, '');
+                        return `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer" onclick="openOCRDrawer('${safeUrl}','${safeName}')">  
+                            <div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:2px">${caseLabel}</div>
+                            <div style="font-size:12px;font-weight:600;margin-bottom:4px">📄 ${r.file_name || 'Document'} <span style="font-weight:400;color:var(--text-secondary)">(${r.page_count || 1}p)</span></div>
+                            <div style="font-size:11px;color:var(--text-secondary);line-height:1.5">${snippet}</div>
+                        </div>`;
+                    }).join('');
+                }
+                resultsPanel.style.display = 'block';
+            } catch (e) {
+                console.warn('[OCR Search] Not available:', e.message);
             }
-            resultsPanel.style.display = 'block';
-        } catch (e) {
-            console.error('[OCR Search]', e);
         }
     }, 400);
 });
@@ -1942,7 +1950,7 @@ document.getElementById('doc-ocr-search-input').addEventListener('input', functi
 // Load OCR status badges for all visible PDFs on case detail open
 async function loadOCRBadgesForCase(caseId) {
     try {
-        const records = await API.request(`/api/ocr-save?case_id=${caseId}`);
+        const records = await API.request(`/api/ocr?case_id=${caseId}`);
         if (!Array.isArray(records)) return;
         records.forEach(r => {
             OCREngine._ocrCache[r.file_url] = r.status;
