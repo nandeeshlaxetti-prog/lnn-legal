@@ -1,0 +1,14 @@
+{
+  "name": "ecourts-scraper",
+  "version": "1.0.0",
+  "description": "Background web scraper for eCourts India",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0",
+    "playwright": "^1.40.0",
+    "tesseract.js": "^5.0.3"
+  }
+}
