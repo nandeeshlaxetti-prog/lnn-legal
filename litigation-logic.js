@@ -353,14 +353,18 @@ function applyRoleRestrictions() {
 }
 
 // ============================================================
-// FETCH ALL DATA
+// FETCH ALL DATA (with 15s timeout guard)
 // ============================================================
 async function fetchAll() {
-    const [tasks, members, cases] = await Promise.all([
-        API.getTasks(), 
+    const fetchData = Promise.all([
+        API.getTasks(),
         API.getMembers(),
-        API.getCases().catch(() => []) // Handle cases as separate aspect
+        API.getCases().catch(() => [])
     ]);
+    const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timed out after 15s')), 15000)
+    );
+    const [tasks, members, cases] = await Promise.race([fetchData, timeout]);
     DB.tasks = tasks;
     DB.members = members;
     DB.cases = cases;
