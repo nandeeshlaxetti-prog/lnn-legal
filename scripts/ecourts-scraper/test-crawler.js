@@ -83,10 +83,14 @@ async function scrapeCase(page, cnr) {
 
         } catch (e) {
             console.error(`Error scraping ${cnr}:`, e.message);
-            console.log('--- HTML DUMP START ---');
-            const html = await page.content().catch(() => 'Could not get HTML');
-            console.log(html.substring(0, 2000)); // Print first 2000 chars of HTML
-            console.log('--- HTML DUMP END ---');
+            console.log('--- PAGE INPUTS DUMP START ---');
+            const inputs = await page.evaluate(() => {
+                return Array.from(document.querySelectorAll('input, button, a')).map(el => {
+                    return `${el.tagName.toLowerCase()} id="${el.id}" name="${el.name || ''}" class="${el.className}" text="${el.innerText || el.value || ''}"`;
+                });
+            }).catch(() => []);
+            console.log(inputs.join('\\n'));
+            console.log('--- PAGE INPUTS DUMP END ---');
             retries--;
         }
     }
