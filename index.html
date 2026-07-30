@@ -5,6 +5,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LNN Legal — Digital Briefcase v1.1.1</title>
+    <!-- Add global error handler to catch boot crashes -->
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            const errDiv = document.createElement('div');
+            errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;z-index:999999;padding:20px;font-family:monospace;white-space:pre-wrap;';
+            errDiv.innerHTML = `<b>LNN App Crashed:</b><br/>${msg}<br/>Line: ${lineNo}<br/>URL: ${url}<br/>Stack: ${error ? error.stack : 'N/A'}`;
+            document.body.appendChild(errDiv);
+            document.getElementById('loading-overlay').style.display = 'none';
+            return false;
+        };
+        window.onunhandledrejection = function(event) {
+            const errDiv = document.createElement('div');
+            errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:orange;color:black;z-index:999999;padding:20px;font-family:monospace;white-space:pre-wrap;';
+            errDiv.innerHTML = `<b>LNN Promise Rejected:</b><br/>${event.reason}`;
+            document.body.appendChild(errDiv);
+            document.getElementById('loading-overlay').style.display = 'none';
+        };
+    </script>
     <meta name="description"
         content="LNN Legal — A premium office work management system to allot tasks, track stages, and oversee your team's workflow." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
