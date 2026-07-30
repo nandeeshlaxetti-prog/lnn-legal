@@ -83,6 +83,10 @@ async function scrapeCase(page, cnr) {
 
         } catch (e) {
             console.error(`Error scraping ${cnr}:`, e.message);
+            console.log('--- HTML DUMP START ---');
+            const html = await page.content().catch(() => 'Could not get HTML');
+            console.log(html.substring(0, 2000)); // Print first 2000 chars of HTML
+            console.log('--- HTML DUMP END ---');
             retries--;
         }
     }
