@@ -1931,7 +1931,7 @@ if (_ocrSearchEl) {
                         const caseObj = DB.cases.find(c => c.id === r.case_id);
                         const caseLabel = caseObj ? `${caseObj.case_type || ''} ${caseObj.case_no || ''} — ${caseObj.petitioner || ''}`.trim() : (r.task_id ? 'From Task' : 'Unlinked');
                         const snippet = r.snippet ? r.snippet.replace(
-                            new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'),
+                            new RegExp(q.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\\\$&'), 'gi'),
                             m => `<mark style="background:#f59e0b33;color:#f59e0b;border-radius:2px">${m}</mark>`
                         ) : '';
                         const safeUrl = (r.file_url || '').replace(/'/g, '');
@@ -1947,9 +1947,9 @@ if (_ocrSearchEl) {
             } catch (e) {
                 console.warn('[OCR Search] Not available:', e.message);
             }
-        }
-    }, 400);
-});
+        }, 400);
+    });
+}
 
 // Load OCR status badges for all visible PDFs on case detail open
 async function loadOCRBadgesForCase(caseId) {
