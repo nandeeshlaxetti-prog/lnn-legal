@@ -7,65 +7,54 @@ async function solveCaptchaWithGemini(imgPath, geminiKey) {
     const imgData = fs.readFileSync(imgPath);
     const base64 = imgData.toString('base64');
 
+    // Disable thinking (thinkingBudget:0) so all tokens go to the actual answer
+    // gemini-2.5-flash uses "thinking tokens" by default which eats the token budget
     const requestBody = JSON.stringify({
         contents: [{
             parts: [
-                {
-                    text: 'Read the text shown in this CAPTCHA image. Reply with ONLY the characters, nothing else. No spaces, no punctuation.'
-                },
-                {
-                    inline_data: {
-                        mime_type: 'image/png',
-                        data: base64
-                    }
-                }
+                { text: 'Read the CAPTCHA text in this image. Reply with ONLY the characters shown, no spaces, no explanation.' },
+                { inline_data: { mime_type: 'image/png', data: base64 } }
             ]
         }],
-        generationConfig: { temperature: 0, maxOutputTokens: 20 }
+        generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 100,
+            thinkingConfig: { thinkingBudget: 0 }
+        }
     });
 
-    // Try both model names
-    const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash'];
-
-    for (const model of models) {
-        try {
-            const result = await new Promise((resolve, reject) => {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
-                const urlObj = new URL(url);
-                const options = {
-                    hostname: urlObj.hostname,
-                    path: urlObj.pathname + urlObj.search,
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(requestBody)
-                    }
-                };
-
-                const req = https.request(options, (res) => {
-                    let data = '';
-                    res.on('data', chunk => data += chunk);
-                    res.on('end', () => resolve({ status: res.statusCode, body: data }));
-                });
-                req.on('error', reject);
-                req.write(requestBody);
-                req.end();
-            });
-
-            console.log(`Gemini [${model}] status: ${result.status}`);
-            console.log(`Gemini raw response: ${result.body.substring(0, 500)}`);
-
-            if (result.status === 200) {
-                const json = JSON.parse(result.body);
-                const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                const solved = text.replace(/\s+/g, '').trim();
-                if (solved) return solved;
+    return new Promise((resolve, reject) => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+        const urlObj = new URL(url);
+        const req = https.request({
+            hostname: urlObj.hostname,
+            path: urlObj.pathname + urlObj.search,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(requestBody)
             }
-        } catch (e) {
-            console.log(`Gemini [${model}] error: ${e.message}`);
-        }
-    }
-    return '';
+        }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                console.log(`Gemini status: ${res.statusCode}`);
+                try {
+                    const json = JSON.parse(data);
+                    const finishReason = json?.candidates?.[0]?.finishReason;
+                    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    console.log(`Gemini finishReason: ${finishReason}, text: "${text}"`);
+                    resolve(text.replace(/\s+/g, '').trim());
+                } catch (e) {
+                    console.log(`Gemini parse error: ${e.message}, raw: ${data.substring(0, 200)}`);
+                    resolve('');
+                }
+            });
+        });
+        req.on('error', (e) => { console.log(`Gemini request error: ${e.message}`); resolve(''); });
+        req.write(requestBody);
+        req.end();
+    });
 }
 
 
