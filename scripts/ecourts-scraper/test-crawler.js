@@ -1,116 +1,154 @@
 const { chromium } = require('playwright');
 const Tesseract = require('tesseract.js');
+const fs = require('fs');
 
-async function solveCaptcha(page) {
-    console.log('Solving CAPTCHA...');
+async function solveCaptcha(page, attempt) {
     const captchaElement = await page.$('#captcha_image');
     if (!captchaElement) {
         console.log('No CAPTCHA image found.');
         return '';
     }
 
-    const buffer = await captchaElement.screenshot();
-    const { data: { text } } = await Tesseract.recognize(buffer, 'eng', {
+    // Save captcha screenshot for inspection
+    const imgPath = `captcha_attempt_${attempt}.png`;
+    const buffer = await captchaElement.screenshot({ path: imgPath });
+    console.log(`CAPTCHA saved as ${imgPath}`);
+
+    const { data: { text } } = await Tesseract.recognize(imgPath, 'eng', {
         tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
     });
 
     const solved = text.replace(/\s+/g, '').trim();
-    console.log('CAPTCHA solved as:', `"${solved}"`);
+    console.log(`CAPTCHA solved as: "${solved}"`);
     return solved;
+}
+
+async function dismissModal(page) {
+    // Try pressing Escape to close any open modal
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+
+    // Also try clicking any visible close button in the modal
+    const closeBtn = await page.$('#validateError .btn-close, #validateError .close, button[data-dismiss="modal"], button[data-bs-dismiss="modal"]');
+    if (closeBtn) {
+        // Use JS click to bypass backdrop
+        await page.evaluate(el => el.click(), closeBtn);
+        await page.waitForTimeout(500);
+    }
+
+    // Wait for backdrop to disappear
+    try {
+        await page.waitForSelector('.modal-backdrop', { state: 'detached', timeout: 5000 });
+        console.log('Modal dismissed successfully.');
+    } catch {
+        console.log('Modal backdrop still present, continuing anyway...');
+        // Force remove the backdrop via JS as last resort
+        await page.evaluate(() => {
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+        });
+    }
+}
+
+async function refreshCaptcha(page) {
+    // Click the refresh CAPTCHA button if it exists
+    const refreshBtn = await page.$('#captcha_image_source_wav, a[onclick*="captcha"], #reload_captcha, .captcha-reload');
+    if (refreshBtn) {
+        await page.evaluate(el => el.click(), refreshBtn);
+        await page.waitForTimeout(1000);
+        console.log('Captcha refreshed.');
+    }
 }
 
 async function scrapeCase(page, cnr) {
     console.log(`\n====== Scraping CNR: ${cnr} ======`);
-    let retries = 5;
 
-    while (retries > 0) {
-        try {
-            console.log(`Navigating to eCourts homepage... (Retries left: ${retries})`);
-            await page.goto('https://services.ecourts.gov.in/ecourtindia_v6/', {
-                waitUntil: 'networkidle',
-                timeout: 30000
-            });
+    // Step 1: Navigate fresh each time
+    console.log('Navigating to eCourts homepage...');
+    await page.goto('https://services.ecourts.gov.in/ecourtindia_v6/', {
+        waitUntil: 'networkidle',
+        timeout: 30000
+    });
 
-            // Click the CNR tab in the left sidebar (id=leftPaneMenuCnr)
-            console.log('Clicking CNR tab in left sidebar (#leftPaneMenuCnr)...');
-            await page.waitForSelector('#leftPaneMenuCnr', { timeout: 15000 });
-            await page.click('#leftPaneMenuCnr');
+    // Step 2: Click the CNR tab
+    console.log('Clicking CNR tab (#leftPaneMenuCnr)...');
+    await page.waitForSelector('#leftPaneMenuCnr', { timeout: 15000 });
+    await page.evaluate(() => document.getElementById('leftPaneMenuCnr').click());
+    await page.waitForSelector('#cnr_div', { state: 'visible', timeout: 10000 });
+    console.log('CNR form is visible.');
 
-            // Wait for the CNR div to become visible
-            console.log('Waiting for CNR form (#cnr_div) to appear...');
-            await page.waitForSelector('#cnr_div', { state: 'visible', timeout: 10000 });
+    // Step 3: Fill CNR number
+    await page.fill('#cino', cnr);
 
-            // Fill in the CNR number
-            console.log(`Filling in CNR: ${cnr}`);
-            await page.fill('#cino', cnr);
-            await page.waitForTimeout(500);
+    // Step 4: Try CAPTCHA up to 8 times
+    let attempt = 0;
+    while (attempt < 8) {
+        attempt++;
+        console.log(`\n--- CAPTCHA attempt ${attempt} ---`);
 
-            // Take a screenshot of the CAPTCHA
-            const captchaElement = await page.$('#captcha_image');
-            if (captchaElement) {
-                await captchaElement.screenshot({ path: `captcha_${cnr}.png` });
-                console.log(`CAPTCHA image saved as captcha_${cnr}.png`);
-            }
+        // Refresh captcha on retries
+        if (attempt > 1) {
+            await refreshCaptcha(page);
+        }
 
-            // Solve CAPTCHA
-            const captchaText = await solveCaptcha(page);
-            if (!captchaText) {
-                console.log('Empty CAPTCHA solve. Retrying...');
-                retries--;
-                continue;
-            }
+        const captchaText = await solveCaptcha(page, attempt);
+        if (!captchaText || captchaText.length < 4) {
+            console.log('CAPTCHA too short or empty. Skipping.');
+            continue;
+        }
 
-            // Fill CAPTCHA
-            console.log('Filling CAPTCHA text...');
-            await page.fill('#fcaptcha_code', captchaText);
-            await page.waitForTimeout(300);
+        // Clear and fill CAPTCHA field
+        await page.fill('#fcaptcha_code', '');
+        await page.fill('#fcaptcha_code', captchaText);
+        await page.waitForTimeout(200);
 
-            // Click search
-            console.log('Clicking search button (#searchbtn)...');
-            await page.click('#searchbtn');
+        // Click Search via JS to avoid modal-backdrop intercept
+        console.log('Clicking search via JS...');
+        await page.evaluate(() => document.getElementById('searchbtn').click());
 
-            // Wait for results or error
-            console.log('Waiting for results...');
-            const result = await Promise.race([
-                page.waitForSelector('#history_cnr', { state: 'visible', timeout: 15000 }).then(() => 'success'),
-                page.waitForSelector('.alert-danger, .alert, #error-msg', { state: 'visible', timeout: 15000 }).then(() => 'captcha_error'),
-            ]).catch(() => 'timeout');
+        // Wait for result or error
+        const result = await Promise.race([
+            page.waitForSelector('#history_cnr', { state: 'visible', timeout: 12000 }).then(() => 'success'),
+            page.waitForSelector('#caseBusinessDiv_cnr table', { state: 'visible', timeout: 12000 }).then(() => 'success'),
+            page.waitForSelector('#validateError.show', { state: 'visible', timeout: 12000 }).then(() => 'modal_error'),
+            page.waitForFunction(
+                () => {
+                    const el = document.querySelector('.alert-danger, #errSpan');
+                    return el && el.innerText && el.innerText.trim().length > 5;
+                },
+                { timeout: 12000 }
+            ).then(() => 'captcha_error'),
+        ]).catch(() => 'timeout');
 
-            console.log('Result status:', result);
+        console.log('Result:', result);
 
-            if (result === 'captcha_error') {
-                const errText = await page.$eval('.alert-danger, .alert, #error-msg', el => el.innerText).catch(() => 'Unknown error');
-                console.log('Error on page:', errText);
-                retries--;
-                continue;
-            }
-
-            if (result === 'timeout') {
-                console.log('Timed out waiting for results.');
-                // Dump whatever is on the page
-                const bodyText = await page.$eval('body', el => el.innerText.substring(0, 1000)).catch(() => '');
-                console.log('Page content:', bodyText);
-                retries--;
-                continue;
-            }
-
-            // SUCCESS — extract data
-            console.log('SUCCESS! Extracting case data...');
+        if (result === 'success') {
+            console.log('\n✅ Search returned results! Extracting data...');
             await page.screenshot({ path: `result_${cnr}.png` });
-            console.log(`Screenshot saved as result_${cnr}.png`);
+            console.log(`Screenshot saved: result_${cnr}.png`);
 
-            const pageText = await page.$eval('body', el => el.innerText).catch(() => '');
-            console.log('Page text (first 2000 chars):', pageText.substring(0, 2000));
-
+            const bodyText = await page.$eval('body', el => el.innerText).catch(() => '');
+            console.log('Page text (first 3000 chars):\n', bodyText.substring(0, 3000));
             return { success: true };
+        }
 
-        } catch (e) {
-            console.error(`Error on attempt:`, e.message);
-            retries--;
+        if (result === 'modal_error' || result === 'captcha_error') {
+            const errText = await page.$eval('#validateError, .alert-danger, #errSpan', el => el.innerText).catch(() => 'unknown error');
+            console.log('Error message:', errText.trim().substring(0, 200));
+            console.log('Dismissing modal and retrying...');
+            await dismissModal(page);
+            continue;
+        }
+
+        if (result === 'timeout') {
+            console.log('Timeout. Checking page state...');
+            const bodyText = await page.$eval('body', el => el.innerText.substring(0, 500)).catch(() => '');
+            console.log('Page text:', bodyText);
+            await dismissModal(page);
         }
     }
 
-    console.log('All retries exhausted.');
+    console.log('All CAPTCHA attempts exhausted.');
     return null;
 }
 
@@ -129,13 +167,12 @@ async function runTest() {
     });
 
     const page = await context.newPage();
-
     const result = await scrapeCase(page, testCnr);
 
     if (result) {
-        console.log('\n✅ Test SUCCESSFUL! The scraper can read eCourts data.');
+        console.log('\n✅ FINAL: Test SUCCESSFUL!');
     } else {
-        console.log('\n❌ Test FAILED. CAPTCHA solving needs improvement.');
+        console.log('\n❌ FINAL: Test FAILED.');
     }
 
     await browser.close();
