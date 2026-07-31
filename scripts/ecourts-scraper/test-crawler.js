@@ -1,156 +1,226 @@
 const { chromium } = require('playwright');
-const Tesseract = require('tesseract.js');
 const https = require('https');
 const fs = require('fs');
 
-async function downloadWithCookies(url, cookies, destPath) {
+// ─── Gemini Vision CAPTCHA Solver ────────────────────────────────────────────
+async function solveCaptchaWithGemini(imgPath, geminiKey) {
+    const imgData = fs.readFileSync(imgPath);
+    const base64 = imgData.toString('base64');
+
+    const requestBody = JSON.stringify({
+        contents: [{
+            parts: [
+                {
+                    text: 'This is a CAPTCHA image from an Indian government website. Read the exact text shown in the image. The text is 5-6 characters long containing only letters and digits. Reply with ONLY the characters you see, nothing else, no spaces, no punctuation, no explanation.'
+                },
+                {
+                    inline_data: {
+                        mime_type: 'image/png',
+                        data: base64
+                    }
+                }
+            ]
+        }],
+        generationConfig: { temperature: 0, maxOutputTokens: 20 }
+    });
+
     return new Promise((resolve, reject) => {
-        const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+        const urlObj = new URL(url);
+        const options = {
+            hostname: urlObj.hostname,
+            path: urlObj.pathname + urlObj.search,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(requestBody)
+            }
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    const json = JSON.parse(data);
+                    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    const solved = text.replace(/\s+/g, '').trim();
+                    resolve(solved);
+                } catch (e) {
+                    reject(new Error('Gemini parse error: ' + e.message));
+                }
+            });
+        });
+        req.on('error', reject);
+        req.write(requestBody);
+        req.end();
+    });
+}
+
+// ─── Download CAPTCHA with session cookies ────────────────────────────────────
+async function downloadCaptcha(url, cookies, destPath) {
+    const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+    return new Promise((resolve, reject) => {
         const options = {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Referer': 'https://services.ecourts.gov.in/ecourtindia_v6/',
                 'Cookie': cookieStr
             }
         };
+        const urlObj = new URL(url);
         const file = fs.createWriteStream(destPath);
-        https.get(url, options, (res) => {
+        https.get({ hostname: urlObj.hostname, path: urlObj.pathname + urlObj.search, ...options }, (res) => {
             res.pipe(file);
             file.on('finish', () => { file.close(); resolve(); });
         }).on('error', reject);
     });
 }
 
-async function solveCaptchaFromUrl(captchaUrl, cookies, attempt) {
-    const imgPath = `captcha_attempt_${attempt}.png`;
-    
-    // Download captcha image directly using session cookies
-    await downloadWithCookies(captchaUrl, cookies, imgPath);
-    console.log(`CAPTCHA downloaded: ${imgPath} (${fs.statSync(imgPath).size} bytes)`);
-    
-    // Run Tesseract OCR
-    const { data: { text } } = await Tesseract.recognize(imgPath, 'eng', {
-        tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-        tessedit_pageseg_mode: '7'  // Treat image as single text line
-    });
-
-    const solved = text.replace(/\s+/g, '').trim();
-    console.log(`OCR result: "${solved}"`);
-    return { solved, imgPath };
-}
-
-async function dismissAnyModal(page) {
-    try {
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(400);
-        // Force remove modal backdrop via JS
-        await page.evaluate(() => {
-            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
+// ─── Dismiss any modal blocking the page ─────────────────────────────────────
+async function dismissModal(page) {
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.querySelectorAll('.modal.show').forEach(el => {
+            el.classList.remove('show');
+            el.style.display = 'none';
         });
-        await page.waitForTimeout(300);
-    } catch (e) { /* ignore */ }
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    });
+    await page.waitForTimeout(200);
 }
 
-async function scrapeCase(page, cnr) {
+// ─── Main scraper ─────────────────────────────────────────────────────────────
+async function scrapeCase(page, cnr, geminiKey) {
     console.log(`\n====== Scraping CNR: ${cnr} ======`);
 
-    // Load homepage fresh
-    console.log('Loading homepage...');
     await page.goto('https://services.ecourts.gov.in/ecourtindia_v6/', {
-        waitUntil: 'networkidle',
-        timeout: 30000
+        waitUntil: 'networkidle', timeout: 30000
     });
 
     // Click CNR tab
-    console.log('Clicking #leftPaneMenuCnr...');
     await page.waitForSelector('#leftPaneMenuCnr', { timeout: 15000 });
     await page.evaluate(() => document.getElementById('leftPaneMenuCnr').click());
     await page.waitForSelector('#cnr_div', { state: 'visible', timeout: 10000 });
+    console.log('CNR form open.');
 
-    // Fill CNR number
     await page.fill('#cino', cnr);
-    console.log('CNR filled.');
 
-    // Get the CAPTCHA image src from the page
-    const captchaSrc = await page.$eval('#captcha_image', el => el.src);
-    console.log('CAPTCHA src:', captchaSrc);
-
-    // Get session cookies for downloading
-    const cookies = await page.context().cookies();
-
-    for (let attempt = 1; attempt <= 8; attempt++) {
+    for (let attempt = 1; attempt <= 6; attempt++) {
         console.log(`\n--- Attempt ${attempt} ---`);
 
-        // On retries, get fresh CAPTCHA URL from page
-        let freshCaptchaSrc = captchaSrc;
-        if (attempt > 1) {
-            freshCaptchaSrc = await page.$eval('#captcha_image', el => el.src).catch(() => captchaSrc);
-            // Trigger captcha refresh by clicking the reload icon if available
-            const reloadCaptcha = await page.$('#reload');
-            if (reloadCaptcha) {
-                await page.evaluate(el => el.click(), reloadCaptcha);
-                await page.waitForTimeout(800);
-                freshCaptchaSrc = await page.$eval('#captcha_image', el => el.src).catch(() => captchaSrc);
-            }
-            console.log('Fresh CAPTCHA src:', freshCaptchaSrc);
+        // Dismiss any leftover modals from prior attempts
+        await dismissModal(page);
+
+        // Get fresh CAPTCHA URL
+        const captchaUrl = await page.$eval('#captcha_image', el => el.src).catch(() => null);
+        if (!captchaUrl) {
+            console.log('CAPTCHA image not found, retrying page...');
+            break;
         }
 
-        const freshCookies = await page.context().cookies();
-        const { solved, imgPath } = await solveCaptchaFromUrl(freshCaptchaSrc, freshCookies, attempt);
+        // On retries, refresh the CAPTCHA image first
+        if (attempt > 1) {
+            const reloadBtn = await page.$('#reload');
+            if (reloadBtn) {
+                await page.evaluate(el => el.click(), reloadBtn);
+                await page.waitForTimeout(800);
+            } else {
+                // Force reload captcha via URL change
+                await page.evaluate(() => {
+                    const img = document.getElementById('captcha_image');
+                    const src = img.src.split('?')[0];
+                    img.src = src + '?' + Date.now();
+                });
+                await page.waitForTimeout(800);
+            }
+        }
 
-        if (!solved || solved.length < 4) {
-            console.log('CAPTCHA solve too short, skipping...');
+        const freshCaptchaUrl = await page.$eval('#captcha_image', el => el.src).catch(() => captchaUrl);
+        const cookies = await page.context().cookies();
+        const imgPath = `captcha_${attempt}.png`;
+
+        // Download CAPTCHA image
+        await downloadCaptcha(freshCaptchaUrl, cookies, imgPath);
+        const size = fs.statSync(imgPath).size;
+        console.log(`CAPTCHA image downloaded: ${imgPath} (${size} bytes)`);
+
+        // Solve with Gemini Vision
+        console.log('Sending to Gemini Vision...');
+        const solved = await solveCaptchaWithGemini(imgPath, geminiKey);
+        console.log(`Gemini solved CAPTCHA as: "${solved}"`);
+
+        if (!solved || solved.length < 4 || solved.length > 8) {
+            console.log('Invalid CAPTCHA solve, retrying...');
             continue;
         }
 
-        // Clear and fill CAPTCHA input
+        // Fill CAPTCHA and search
         await page.fill('#fcaptcha_code', '');
-        await page.type('#fcaptcha_code', solved, { delay: 50 });
+        await page.type('#fcaptcha_code', solved, { delay: 40 });
         await page.waitForTimeout(200);
-
-        // Click search via JS to avoid any backdrop issues
         await page.evaluate(() => document.getElementById('searchbtn').click());
+        console.log('Search submitted.');
 
         // Wait for result
-        const result = await Promise.race([
+        const outcome = await Promise.race([
             page.waitForSelector('#history_cnr', { state: 'visible', timeout: 12000 }).then(() => 'success'),
             page.waitForSelector('#caseBusinessDiv_cnr table', { state: 'visible', timeout: 12000 }).then(() => 'success'),
-            page.waitForSelector('#validateError.show, #msg-danger:visible', { state: 'visible', timeout: 12000 }).then(() => 'error'),
+            page.waitForSelector('#validateError.show', { state: 'visible', timeout: 12000 }).then(() => 'modal_error'),
+            page.waitForSelector('#msg-danger', { state: 'visible', timeout: 12000 }).then(() => 'msg_error'),
         ]).catch(() => 'timeout');
 
-        console.log('Result:', result);
+        console.log('Outcome:', outcome);
 
-        if (result === 'success') {
-            console.log('\n✅ SUCCESS! Case data found!');
+        if (outcome === 'success') {
+            console.log('\n✅ SUCCESS! Extracting case data...');
             await page.screenshot({ path: `result_${cnr}.png`, fullPage: true });
-            const text = await page.$eval('body', el => el.innerText).catch(() => '');
-            console.log('Page content (first 2000 chars):\n', text.substring(0, 2000));
-            return true;
+
+            const bodyText = await page.$eval('body', el => el.innerText).catch(() => '');
+            console.log('\n--- CASE DATA ---');
+            console.log(bodyText.substring(0, 3000));
+
+            // Extract specific fields
+            const nextHearing = bodyText.match(/Next\s+(?:Date|Hearing)[^\n]*\n([^\n]+)/)?.[1]?.trim();
+            const caseStatus  = bodyText.match(/Case\s+Status[^\n]*\n([^\n]+)/)?.[1]?.trim();
+            if (nextHearing) console.log('\nNext Hearing:', nextHearing);
+            if (caseStatus)  console.log('Case Status:', caseStatus);
+
+            return { success: true, nextHearing, caseStatus };
         }
 
-        if (result === 'error') {
-            const errMsg = await page.$eval('#validateError, #msg-danger', el => el.innerText).catch(() => '?');
-            console.log('Error:', errMsg.trim().substring(0, 150));
-            await dismissAnyModal(page);
+        if (outcome === 'modal_error' || outcome === 'msg_error') {
+            const errMsg = await page.$eval('#validateError, #msg-danger', el => el.innerText)
+                .catch(() => 'unknown');
+            console.log('Page error:', errMsg.trim().substring(0, 150));
+            await dismissModal(page);
             continue;
         }
 
-        if (result === 'timeout') {
-            console.log('Timeout. Checking page...');
-            const txt = await page.$eval('body', el => el.innerText.substring(0, 300)).catch(() => '');
-            console.log(txt);
-            await dismissAnyModal(page);
+        if (outcome === 'timeout') {
+            const pg = await page.$eval('body', el => el.innerText.substring(0, 200)).catch(() => '');
+            console.log('Timeout. Page snippet:', pg);
+            await dismissModal(page);
         }
     }
 
-    return false;
+    return null;
 }
 
+// ─── Entry point ──────────────────────────────────────────────────────────────
 async function run() {
-    console.log('Starting eCourts Scraper...');
-    const testCnr = 'KABC030534362020';
+    const GEMINI_KEY = process.env.GEMINI_API_KEY;
+    if (!GEMINI_KEY) {
+        console.error('❌ GEMINI_API_KEY environment variable is not set!');
+        process.exit(1);
+    }
+
+    const testCnr = process.argv[2] || 'KABC030534362020';
+    console.log(`Starting eCourts Scraper with Gemini Vision for CNR: ${testCnr}`);
 
     const browser = await chromium.launch({
         headless: true,
@@ -163,15 +233,17 @@ async function run() {
     });
 
     const page = await context.newPage();
-    const ok = await scrapeCase(page, testCnr);
-    
-    if (ok) {
-        console.log('\n✅ FINAL: Test SUCCESSFUL!');
-    } else {
-        console.log('\n❌ FINAL: Test FAILED.');
-    }
 
-    await browser.close();
+    try {
+        const result = await scrapeCase(page, testCnr, GEMINI_KEY);
+        if (result) {
+            console.log('\n✅ FINAL: Test SUCCESSFUL!');
+        } else {
+            console.log('\n❌ FINAL: CAPTCHA still failing — check captcha_*.png artifacts.');
+        }
+    } finally {
+        await browser.close();
+    }
 }
 
 run();
