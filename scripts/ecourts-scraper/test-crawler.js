@@ -11,7 +11,7 @@ async function solveCaptchaWithGemini(imgPath, geminiKey) {
         contents: [{
             parts: [
                 {
-                    text: 'This is a CAPTCHA image from an Indian government website. Read the exact text shown in the image. The text is 5-6 characters long containing only letters and digits. Reply with ONLY the characters you see, nothing else, no spaces, no punctuation, no explanation.'
+                    text: 'Read the text shown in this CAPTCHA image. Reply with ONLY the characters, nothing else. No spaces, no punctuation.'
                 },
                 {
                     inline_data: {
@@ -24,38 +24,50 @@ async function solveCaptchaWithGemini(imgPath, geminiKey) {
         generationConfig: { temperature: 0, maxOutputTokens: 20 }
     });
 
-    return new Promise((resolve, reject) => {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
-        const urlObj = new URL(url);
-        const options = {
-            hostname: urlObj.hostname,
-            path: urlObj.pathname + urlObj.search,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(requestBody)
-            }
-        };
+    // Try both model names
+    const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash'];
 
-        const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-                try {
-                    const json = JSON.parse(data);
-                    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                    const solved = text.replace(/\s+/g, '').trim();
-                    resolve(solved);
-                } catch (e) {
-                    reject(new Error('Gemini parse error: ' + e.message));
-                }
+    for (const model of models) {
+        try {
+            const result = await new Promise((resolve, reject) => {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+                const urlObj = new URL(url);
+                const options = {
+                    hostname: urlObj.hostname,
+                    path: urlObj.pathname + urlObj.search,
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(requestBody)
+                    }
+                };
+
+                const req = https.request(options, (res) => {
+                    let data = '';
+                    res.on('data', chunk => data += chunk);
+                    res.on('end', () => resolve({ status: res.statusCode, body: data }));
+                });
+                req.on('error', reject);
+                req.write(requestBody);
+                req.end();
             });
-        });
-        req.on('error', reject);
-        req.write(requestBody);
-        req.end();
-    });
+
+            console.log(`Gemini [${model}] status: ${result.status}`);
+            console.log(`Gemini raw response: ${result.body.substring(0, 500)}`);
+
+            if (result.status === 200) {
+                const json = JSON.parse(result.body);
+                const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const solved = text.replace(/\s+/g, '').trim();
+                if (solved) return solved;
+            }
+        } catch (e) {
+            console.log(`Gemini [${model}] error: ${e.message}`);
+        }
+    }
+    return '';
 }
+
 
 // ─── Download CAPTCHA with session cookies ────────────────────────────────────
 async function downloadCaptcha(url, cookies, destPath) {
