@@ -28,11 +28,22 @@ async function scrapeCase(page, cnr) {
 
     while (retries > 0) {
         try {
-            console.log(`Navigating to eCourts CNR search page... (Retries left: ${retries})`);
-            await page.goto('https://services.ecourts.gov.in/ecourtindia_v6/?p=home/searchCnr', { waitUntil: 'networkidle' });
+            console.log(`Navigating to eCourts home page... (Retries left: ${retries})`);
+            await page.goto('https://services.ecourts.gov.in/ecourtindia_v6/', { waitUntil: 'networkidle' });
             
+            // Try to find and click the CNR tab or button
+            console.log('Looking for CNR tab...');
+            const cnrTab = await page.$('a:has-text("CNR")');
+            if (cnrTab) {
+                console.log('Found CNR tab. Clicking it...');
+                await cnrTab.click();
+            } else {
+                console.log('No CNR tab found, assuming we are on the right page or it requires another action.');
+            }
+
             // Wait for CNR input field
-            await page.waitForSelector('#cino', { timeout: 10000 });
+            console.log('Waiting for #cino input field...');
+            await page.waitForSelector('#cino', { timeout: 15000 });
             await page.fill('#cino', cnr);
 
             // Solve and fill CAPTCHA
